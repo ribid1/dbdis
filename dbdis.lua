@@ -30,6 +30,13 @@
 		- if you activate the reset switch during the timer runs, the actual flight will not count and the timer starts at zero again.
 		  if you activate the reset switch during the timer stops, and you have already reached the time limit, the actual flight will be count and the timer starts at zero again an other flight.
 		- impliment of the CalCa- Gas and the CalCa-Elec App: If you get values from the app they will be used.
+	V1.3 select sensors from different devices
+		- save the History (fight counts and total flight time in a file)
+ 	V1.4 Rx values of 2nd Receiver and Backup Receiver added
+	V1.5 2nd Battery added
+	V1.6 moved the drawfunctions in the screen modul
+	V1.7 Central box added
+	V2.0 Second Form to change the order of the boxes added
 --]]
 
 --[[
@@ -69,98 +76,20 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "1.3"
+local Version = "1.9"
 local owner = " ", " "
 local Title
 --local mem, maxmem = 0, 0 -- for debug only
 local goregisterTelemetry = nil
-local Screen
+local Form, Form2, Screen
 local trans
-
-local yliDist, yliStart = 0, 0   
-local yreDist, yreStart = 0, 0
-local maxliDraw, maxreDraw = 0, 0
+local senslbls = {}
+local formID
 
 -- Telemetry Window
 local function Window(width, height)
-	local xli, xre = 2, 193 -- x Abstand der Anzeigeboxen vom linken Rand
-	local lengthSep = 160 - (xre - 160) - xli
-  
-	
-	local xStart = xli
-	local yStart = yliStart
-	local yDist = yliDist  -- berechneter Abstand zw. den Feldern und Seperatoren
-	local iSep = 0   -- Anzahl der Seperatoren mit variablen Abstand
-	local iDraw = 0
-	local maxDraw = maxliDraw  -- maximale Anzahl der Felder
-	
-	
-	--left:
-	-----------------------------------------------------
-	-- hier die Zeilen für die linken Felder in die Reihenfolge bringen wie sie angezeigt werden sollen: (die Zeilen können auch zw. li. und re. hin und her kopiert werden)
-	-- der Wert nach iSep bestimmt die Dicke der Trennlinie (0 = keine Trennlinie)
-	-- die letzten beiden Werte bestimmen den Abstand zw. den Feldern:
-	-- z. Bsp.: ..., 2, false) bedeutet der Abstand zum nächsten Feld sind 2 Punkte
-	-- oder ..., yDist, true) beudet der Abstand zum nächsten Feld wird berechnet und gleichmäßig aufgeteilt
-	yStart, iDraw, iSep = Screen.drawTotalCount(iDraw, maxDraw, iSep, 0, lengthSep, xStart, yStart, yDist, true) -- TotalTime
-	yStart, iDraw, iSep = Screen.drawFlightTime(iDraw, maxDraw, iSep, 0, lengthSep, xStart, yStart, yDist, true)  -- FlightTime
-	yStart, iDraw, iSep = Screen.drawEngineTime(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true)  -- EngineTime
-	yStart, iDraw, iSep = Screen.drawRxValues(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true)	-- Rx values
-	yStart, iDraw, iSep = Screen.drawrpmbox(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true)    -- rpm
-	yStart, iDraw, iSep = Screen.drawHeight(iDraw, maxDraw, iSep, 1, lengthSep, xStart, yStart, yDist, true)   -- height
-	yStart, iDraw, iSep = Screen.drawVario(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true)   -- vario
-	yStart, iDraw, iSep = Screen.drawStatusbox(iDraw, maxDraw, iSep, 1, lengthSep, xStart, yStart, yDist, true)    -- Status
-	
-	------------------------------------------------------
-	 	 
-	maxliDraw = iDraw
-	yliDist = math.floor((160 - yStart + yliStart + iSep * yliDist) / (iSep + 2))
-	yliStart = math.floor((160 - (yStart - yliStart)) / 2)
-		
-	xStart = xre
-	yStart = yreStart
-	yDist = yreDist
-	iSep = 0
-	iDraw = 0
-	maxDraw = maxreDraw
-
-	--right
-	----------------------------------------------------------
-	-- hier die Zeilen für die rechten Felder in die Reihenfolge bringen wie sie angezeigt werden sollen: (die Zeilen können auch zw. li. und re. hin und her kopiert werden)
-	-- der Wert nach iSep bestimmt die Dicke der Trennlinie (0 = keine Trennlinie)
-	-- die letzten beiden Werte bestimmen den Abstand zw. den Feldern:
-	-- z. Bsp.: ..., 2, false) bedeutet der Abstand zum nächsten Feld sind 2 Punkte
-	-- oder ..., yDist, true) beudet der Abstand zum nächsten Feld wird berechnet und gleichmäßig aufgeteilt
-	yStart, iDraw, iSep = Screen.drawVpC(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true) -- battery voltage
-	yStart, iDraw, iSep = Screen.drawUsedCapacity(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true) -- used capacity
-	yStart, iDraw, iSep = Screen.drawCurrent(iDraw, maxDraw, iSep, 2, lengthSep, xStart, yStart, yDist, true)   -- Current
-	yStart, iDraw, iSep = Screen.drawPump_voltagebox(iDraw, maxDraw, iSep, 1, lengthSep, xStart, yStart, 2, false)     -- Pump voltage
-	yStart, iDraw, iSep = Screen.drawIBECbox(iDraw, maxDraw, iSep, 1, lengthSep, xStart, yStart, 2, false)     -- IBEC
-	yStart, iDraw, iSep = Screen.drawTempbox(iDraw, maxDraw, iSep, 1 , lengthSep, xStart, yStart, 2, false)      -- Temperature
-	yStart, iDraw, iSep = Screen.drawThrottlebox(iDraw, maxDraw, iSep, 1, lengthSep, xStart, yStart, 2, false)    -- Throttle
-	yStart, iDraw, iSep = Screen.drawPWMbox(iDraw, maxDraw, iSep, 1, lengthSep, xStart, yStart, yDist, true)      -- PWM
-	----------------------------------------------------------
-	
-	
-	maxreDraw = iDraw
-	yreDist = math.floor((160 - yStart + yreStart + iSep * yreDist) / (iSep + 2))
-	yreStart = math.floor((160 - (yStart - yreStart)) / 2)
-	
-
-	-- middle
-  Screen.drawBattery()
-  Screen.drawTank()
-  Screen.drawMibotbox()
-  
---	if used_capacity > -1 then Screen.drawBattery(remaining_capacity_percent, setupvars.capacity_alarm_thresh, setupvars.capacity, setupvars.cell_count, gyro_channel_value) 
---	else
---		if remaining_fuel_percent >= 0 then 
---			Screen.drawTank(remaining_fuel_percent, setupvars.capacity_alarm_thresh) 
---		gyro_channel_value = 17 end
---	end
---	if gyro_channel_value ~= 17 then Screen.drawMibotbox(gyro_channel_value) end
-	
-  collectgarbage()
+	Screen.showDisplay()
+	collectgarbage()
 end
 
 
@@ -181,33 +110,152 @@ local function unrequire(module)
 end
 
 -- switch to setup context
-local function setupForm(formID)
-  local Screen, Form
-  
-	Screen = nil
-	unrequire(appName.."/Screen")
-	system.unregisterTelemetry(1)
+local function setupForm(ID)
+	formID = ID
+	Screen = nil						-- comment out if closeForm not available
+	unrequire(appName.."/Screen")		-- comment out if closeForm not available
+	system.unregisterTelemetry(1)		-- comment out if closeForm not available
   
 	collectgarbage()
 
 	Form = require (appName.."/Form")
+	Form2 = require (appName.."/Form2")
+	
+	
+	if (formID == 1) then setupvars = Form.setup(setupvars, Version, senslbls) -- return modified data from user
+	elseif (formID == 2) then 
+		setupvars = Form2.setup(setupvars)
+	end
 
-	-- return modified data from user
-	setupvars = Form.setup(setupvars, Version)
+	form.setButton(1, "1", formID == 1 and HIGHLIGHTED or ENABLED)
+	form.setButton(2, "2", formID == 2 and HIGHLIGHTED or ENABLED)
 
+	if (formID == 2) then
+		form.setButton(3, ":up", ENABLED)
+		form.setButton(4, ":down", ENABLED)
+	end
 	collectgarbage()
+
+end
+
+local function saveOrder()
+		local filename 
+		if setupvars.template then filename = "Apps/"..setupvars.appName.."/template_O.txt"
+			else filename = "Apps/"..setupvars.appName.."/"..setupvars.model.."_O.txt"
+		end
+		local file = io.open(filename, "w+")
+		local i, line
+		if file then
+		for i, line in ipairs(setupvars.leftcolumn) do 
+			io.write(file, line, "\n") 
+			io.write(file, setupvars.param[line][1],"   ", setupvars.param[line][2], "\n")  
+		end
+		io.write(file, "---\n")
+		for i, line in ipairs(setupvars.rightcolumn) do 
+			io.write(file, line, "\n") 
+			io.write(file, setupvars.param[line][1],"   ", setupvars.param[line][2], "\n")  
+		end
+		io.write(file, "---\n")
+		for i, line in ipairs(setupvars.notused) do 
+			io.write(file, line, "\n") 
+			io.write(file, setupvars.param[line][1],"   ", setupvars.param[line][2], "\n")  
+		end
+		io.close(file)
+		end
+		collectgarbage()
+end
+
+local function moveLine(window, back)
+	local startleft = 5
+	local rowsleft = #setupvars.leftcolumn
+	local startright = startleft + rowsleft + 2
+	local rowsright = #setupvars.rightcolumn
+	local startnotused = startright + rowsright + 2
+	local rowsnotused = #setupvars.notused
+	local row = form.getFocusedRow()
+	if back then
+		if row < startleft then
+			form.setFocusedRow(row - 1)
+		elseif row == startleft then
+			table.insert(setupvars.notused, setupvars.leftcolumn[1])
+			table.remove(setupvars.leftcolumn, 1)
+			form.setFocusedRow(startnotused + rowsnotused - 1)
+		elseif row < startleft + rowsleft then
+			setupvars.leftcolumn[row - startleft],setupvars.leftcolumn[row - startleft + 1]  = setupvars.leftcolumn[row - startleft + 1], setupvars.leftcolumn[row - startleft]
+			form.setFocusedRow(row - 1)
+		elseif row < startright then
+			form.setFocusedRow(row -1)
+		elseif row == startright then
+			table.insert(setupvars.leftcolumn, setupvars.rightcolumn[1])
+			table.remove(setupvars.rightcolumn, 1)
+			form.setFocusedRow(startleft + rowsleft)
+		elseif row < startright + rowsright then
+			setupvars.rightcolumn[row - startright],setupvars.rightcolumn[row - startright + 1]  = setupvars.rightcolumn[row - startright + 1], setupvars.rightcolumn[row - startright]
+			form.setFocusedRow(row - 1)
+		elseif row < startnotused then
+			form.setFocusedRow(row - 1)
+		elseif row < startnotused + rowsnotused then
+			table.insert(setupvars.rightcolumn, setupvars.notused[row - startnotused + 1])
+			table.remove(setupvars.notused, row - startnotused + 1)
+			form.setFocusedRow(startright + rowsright)
+		else
+			form.setFocusedRow(row -1)
+		end
+	else
+		if row < startleft then
+			form.setFocusedRow(row + 1)
+		elseif row < startleft + rowsleft - 1 then
+			setupvars.leftcolumn[row - startleft + 2],setupvars.leftcolumn[row - startleft + 1]  = setupvars.leftcolumn[row - startleft + 1], setupvars.leftcolumn[row - startleft + 2]
+			form.setFocusedRow(row + 1)
+		elseif row == startleft + rowsleft - 1 then
+			table.insert(setupvars.rightcolumn,1, setupvars.leftcolumn[rowsleft])
+			table.remove(setupvars.leftcolumn, rowsleft)
+			form.setFocusedRow(startright - 1)
+		elseif row < startright then
+			form.setFocusedRow(row + 1)
+		elseif row < startright + rowsright - 1 then
+			setupvars.rightcolumn[row - startright + 2],setupvars.rightcolumn[row - startright + 1]  = setupvars.rightcolumn[row - startright + 1], setupvars.rightcolumn[row - startright + 2]
+			form.setFocusedRow(row + 1)
+		elseif row == startright + rowsright -1 then
+			table.insert(setupvars.notused,1, setupvars.rightcolumn[rowsright])
+			table.remove(setupvars.rightcolumn, rowsright)
+			form.setFocusedRow(startnotused - 1)
+		elseif row < startnotused then
+			form.setFocusedRow(row + 1)
+		elseif row < startnotused + rowsnotused then
+			table.insert(setupvars.leftcolumn, 1, setupvars.notused[row - startnotused + 1])
+			table.remove(setupvars.notused, row - startnotused + 1)
+			form.setFocusedRow(startleft)
+		else
+			form.setFocusedRow(row + 1)
+		end
+	end
+	saveOrder()
+end
+
+
+
+local function keyForm(key)
+	if (key == KEY_1 and formID ~= 1) then
+		form.reinit(1)
+	elseif (key == KEY_2 and formID ~= 2) then
+		form.reinit(2)
+	elseif (key == KEY_3 and formID == 2) then
+		moveLine(formID, true)
+		form.reinit(formID)
+	elseif (key == KEY_4 and formID == 2) then
+		moveLine(formID)
+		form.reinit(formID)
+	end
 end
 
 -- switch to telemetry context
 local function closeForm()
-  local Screen, Form
   
 	Form = nil
 	unrequire(appName.."/Form")
   
-  collectgarbage()
-  
-	--Screen = require (appName.."/Screen")
+	collectgarbage()
 
 	-- register telemetry window again after 500 ms
 	goregisterTelemetry = 500 + system.getTimeCounter() -- used in loop()
@@ -221,14 +269,14 @@ end
 local function loop()
   
   -- code of loop from screen module
-	if ( Screen ~= nil ) then
+	if ( Screen ) then
 		Screen.loop()
 	end
   
   -- register telemetry display again after form was closed 
 	if ( goregisterTelemetry and system.getTimeCounter() > goregisterTelemetry ) then
     
-    Screen = require(appName.."/Screen")
+		Screen = require(appName.."/Screen")
 		Screen.init(setupvars)
     
 		system.registerTelemetry(1, Title, 4, Window)
@@ -249,39 +297,44 @@ end
 
 -- init all
 local function init(code1)
-  local day
+	local day
 	local spaceLe, spaceRi = "", ""
-	local i = 0 
+	local i,j
 	local lModel
 	local lli
-  local today, intToday
-  
-  
-  setupvars.appName = appName	
-	setupvars.model = system.getProperty("Model")
+	local today, intToday
+	local sensCat
+	local senslbl
+	local catName
 	owner = system.getUserName()
 	
-
-	setupvars.sensorId = system.pLoad("sensorId", 0)
-	setupvars.battery_voltage_param = system.pLoad("battery_voltage_param", 0)
-	setupvars.motor_current_param = system.pLoad("motor_current_param", 0)
-	setupvars.rotor_rpm_param = system.pLoad("rotor_rpm_param", 0)
-	setupvars.used_capacity_param = system.pLoad("used_capacity_param", 0)
-	setupvars.bec_current_param = system.pLoad("bec_current_param", 0)
-	setupvars.pwm_percent_param = system.pLoad("pwm_percent_param", 0)
-	setupvars.fet_temp_param = system.pLoad("fet_temp_param", 0)
-	setupvars.throttle_param = system.pLoad("throttle_param", 0)
-	setupvars.status_param = system.pLoad("status_param", 0)
-	setupvars.pump_voltage_param = system.pLoad("pump_voltage_param", 0)
-	setupvars.remaining_fuel_percent_param = system.pLoad("remaining_fuel_percent_param", 0)
-	setupvars.height_param = system.pLoad("height_param", 0)
-	setupvars.vario_param = system.pLoad("vario_param", 0)
-
+	senslbls.cat = {"eDrive", "fuelDrive", "Rx", "mixed"}
+	senslbls.catName = {trans["all"]}
+	for i,catName in ipairs(senslbls.cat) do
+		table.insert(senslbls.catName, trans[catName])
+	end
+	
+	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens"}
+	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens"}
+	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "Temp_sens", "OverI_sens"}
+	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "vario_sens"}
+    	
+	setupvars.deviceId = system.pLoad("deviceId", 0)	-- remember last selectet device
+	setupvars.catsel = system.pLoad("catsel", 1) 		-- selection of sensor category
+	for i,sensCat in pairs(senslbls) do
+		for j, senslbl in pairs(sensCat) do
+			setupvars[senslbl] = system.pLoad(senslbl, { 0, 0 } )
+		end
+	end
+	setupvars.appName = appName	
+	setupvars.model = system.getProperty("Model")
 	setupvars.anCapaSw = system.pLoad("anCapaSw")
 	setupvars.anVoltSw = system.pLoad("anVoltSw")
 	setupvars.voltage_alarm_voice = system.pLoad("voltage_alarm_voice", "...")
 	setupvars.capacity_alarm_voice = system.pLoad("capacity_alarm_voice", "...")
-	setupvars.capacity = system.pLoad("capacity",0)
+	setupvars.capacity1 = system.pLoad("capacity1",0)
+	setupvars.capacity2 = system.pLoad("capacity2",0)
+	setupvars.akkuSw = system.pLoad("akkuSw")	
 	setupvars.cell_count = system.pLoad("cell_count",1)
 	setupvars.capacity_alarm_thresh = system.pLoad("capacity_alarm_thresh", 0)
 	setupvars.voltage_alarm_thresh = system.pLoad("voltage_alarm_thresh", 0)
@@ -293,10 +346,11 @@ local function init(code1)
 	setupvars.todayCount = system.pLoad("todayCount", 0)
 	setupvars.timeToCount = system.pLoad("timeToCount", 120)
 	setupvars.lastDay = system.pLoad("lastDay", 0)
+	setupvars.template = system.pLoad("template", 1) == 1 and true or false
   
 	today = system.getDateTime()	
 	intToday = math.floor(system.getTime() / 86400)
-  if setupvars.lastDay < intToday then
+	if setupvars.lastDay < intToday then
 		setupvars.todayCount = 0
 		system.pSave("lastDay", intToday)
 		system.pSave("todayCount", 0)
@@ -312,14 +366,14 @@ local function init(code1)
 	for i = 1, lli/3.2 do spaceLe = spaceLe.." " end
 	for i = 1, (160 - lModel / 2 - lcd.getTextWidth(FONT_MINI,string.format(day)))/3.2 do spaceRi = spaceRi.." " end
 	Title = appName.." - "..owner..spaceLe.. setupvars.model..spaceRi..day
-	system.registerForm(1, MENU_MAIN, appName, setupForm, nil, nil, closeForm)
+	system.registerForm(1, MENU_MAIN, appName, setupForm, keyForm, nil, closeForm)
 	system.registerTelemetry(1,Title, 4, Window) -- registers a full size Window  
 
 	unrequire("wifi")	-- there is no hardware present for this module
 	--unrequire("io")	-- can be unloaded if no other App loaded uses file IO 
 
 	Screen = require (appName.."/Screen")
-  Screen.init(setupvars)
+	Screen.init(setupvars)
 
 	-- debug, loaded modules
 	--local i, p

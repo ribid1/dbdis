@@ -1,46 +1,63 @@
-local sensor_label_list = {}
-local sensor_id_list = {}
-local sensor_param_lists = {}
-local sensorIndex = 0
+local device_label_list = {}
+local device_id_list = {}
+local sensor_lists = {}
+local deviceIndex = 0
+local show
 local output_list = { "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10", "O11", "O12",
 							"O13", "O14", "O15", "O16", "OO"}
 
 
-local function make_lists (sensorId)
-	if ( not sensor_id_list[1] ) then	-- sensors not yet checked or rebooted
+local function make_lists (deviceId)
+	local sensor, i
+	if ( not device_id_list[1] ) then	-- sensors not yet checked or rebooted
+		deviceIndex = 0
 		for i,sensor in ipairs(system.getSensors()) do
 			if (sensor.param == 0) then	-- new multisensor/device
-				sensor_label_list[#sensor_label_list + 1] = sensor.label	-- list presented in sensor select box
-				sensor_id_list[#sensor_id_list + 1] = sensor.id				-- to get id from if sensor changed, same numeric indexing
-				if (sensor.id == sensorId) then
-					sensorIndex = #sensor_id_list
+				device_label_list[#device_label_list + 1] = sensor.label	-- list presented in sensor select box
+				device_id_list[#device_id_list + 1] = sensor.id				-- to get id from if sensor changed, same numeric indexing
+				if (sensor.id == deviceId) then
+					deviceIndex = #device_id_list
 				end
-				sensor_param_lists[#sensor_param_lists + 1] = {}			-- start new param list only containing label and unit as string
+				sensor_lists[#sensor_lists + 1] = {}			-- start new param list only containing label and unit as string
 			else															-- subscript is number of param for current multisensor/device
-				sensor_param_lists[#sensor_param_lists][sensor.param] = sensor.label .. "  " .. sensor.unit	-- list presented in param select box
-				sensor_param_lists[#sensor_param_lists][sensor.param + 1] = "..."
+				sensor_lists[#sensor_lists][sensor.param] = sensor.label .. "  " .. sensor.unit	-- list presented in param select box
+				sensor_lists[#sensor_lists][sensor.param + 1] = "..."
 			end
 		end
-    sensor_label_list[#sensor_label_list + 1] = "..."
+    device_label_list[#device_label_list + 1] = "..."
 	end	
 end
 
+local function check_other_device(sens, deviceId)
+	local i
+	show = true
+	if ( sens[1] ~= deviceId and sens[2] ~= 0 ) then	-- sensor selectet from another device 
+		for i in next, device_id_list do
+			if ( sens[1] == device_id_list[i] ) then	-- this other device is still present
+				show = false
+			end	
+		end	
+	end
+end
 
 
-local function setup(vars, Version)
+local function setup(vars, Version, senslbls)
+	local i,j
+	local sensCat = {}
+	local senslbl
+
+	local function saveFlights()
+		local file = io.open("Apps/"..vars.appName.."/"..vars.model..".txt", "w+")
+		if file then
+		  io.write(file, vars.totalCount.."\n")
+		  io.write(file, vars.totalFlighttime.."\n")
+		  io.close(file)
+		end
+		collectgarbage()
+	end 
   
-   local function saveFlights()
-    local file = io.open("Apps/"..vars.appName.."/"..vars.model..".txt", "w+")
-    if file then
-      io.write(file, vars.totalCount.."\n")
-      io.write(file, vars.totalFlighttime.."\n")
-      io.close(file)
-    end
-    collectgarbage()
-  end 
-  
 
-	make_lists(vars.sensorId)
+	make_lists(vars.deviceId)
 
 	form.setTitle(vars.trans.title)
 
@@ -52,151 +69,56 @@ local function setup(vars, Version)
 	form.addRow(2)
 	form.addLabel({label = vars.trans.labelp0, width=200})
 
-	form.addSelectbox( sensor_label_list, sensorIndex, true,
+	form.addSelectbox( device_label_list, deviceIndex, true,
 						function (value)
-							if ( not sensor_id_list[1] ) then	-- no device found
+							if ( not device_id_list[1] ) then	-- no device found
 								return
 							end
-							vars.sensorId  = sensor_id_list[value]
-							system.pSave("sensorId", vars.sensorId)
-							sensorIndex = value
-
-							vars.battery_voltage_param = 0 --default is "..."
-							vars.motor_current_param = 0
-							vars.rotor_rpm_param = 0
-							vars.used_capacity_param = 0
-							vars.bec_current_param = 0
-							vars.pwm_percent_param = 0
-							vars.fet_temp_param = 0
-							vars.throttle_param = 0
-							vars.status_param = 0
-							vars.pump_voltage_param = 0
-
+							if (device_label_list[value] == "...") then
+								vars.deviceId = 0
+								deviceIndex = 0
+							else
+								vars.deviceId  = device_id_list[value]
+								deviceIndex = value
+							end
+							system.pSave("deviceId", vars.deviceId)
+														
 							form.reinit()
 						end )
 
-	if ( sensor_id_list and sensorIndex > 0 ) then
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp1})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.battery_voltage_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.battery_voltage_param = value
-								system.pSave("battery_voltage_param", vars.battery_voltage_param)
-							end )
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp2})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.motor_current_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.motor_current_param = value
-								system.pSave("motor_current_param", vars.motor_current_param)
-							end )
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp3})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.rotor_rpm_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.rotor_rpm_param = value
-								system.pSave("rotor_rpm_param", vars.rotor_rpm_param)
-							end )
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp4})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.used_capacity_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.used_capacity_param = value
-								system.pSave("used_capacity_param", vars.used_capacity_param)
-							end )
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp5})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.bec_current_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.bec_current_param = value
-								system.pSave("bec_current_param", vars.bec_current_param)
-							end )
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp6})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.pwm_percent_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.pwm_percent_param = value
-								system.pSave("pwm_percent_param", vars.pwm_percent_param)
-							end )
-
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp7})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.fet_temp_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.fet_temp_param = value
-								system.pSave("fet_temp_param", vars.fet_temp_param)
-							end )
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp8})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.throttle_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.throttle_param = value
-								system.pSave("throttle_param", vars.throttle_param)
-							end )
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.level})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.remaining_fuel_percent_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.remaining_fuel_percent_param = value
-								system.pSave("remaining_fuel_percent_param", vars.remaining_fuel_percent_param)
-							end )					
-	
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp10})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.pump_voltage_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.pump_voltage_param = value
-								system.pSave("pump_voltage_param", vars.pump_voltage_param)
-							end )	
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.labelp9})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.status_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.status_param = value
-								system.pSave("status_param", vars.status_param)
-							end )
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.height})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.height_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.height_param = value
-								system.pSave("height_param", vars.height_param)
-							end )
-		form.addRow(2) 	
-		form.addLabel({label = vars.trans.vario})
-		form.addSelectbox(sensor_param_lists[sensorIndex], vars.vario_param, true,
-							function (value)
-								if sensor_param_lists[sensorIndex][value] == "..." then value = 0 end
-								vars.vario_param = value
-								system.pSave("vario_param", vars.vario_param)
-							end )
-
-
-							
-							
+	if ( device_id_list and deviceIndex > 0 ) then
+		form.addRow(2)
+		form.addLabel({label = vars.trans["sensCat"]})
+		form.addSelectbox(senslbls.catName,vars.catsel,true, function(value)
+			vars.catsel = value
+			system.pSave("catsel", vars.catsel)
+			form.reinit()
+		end)
+		
+		for i, sensCat in ipairs(senslbls.cat) do
+			if sensCat == senslbls.cat[vars.catsel-1] or vars.catsel == 1 then
+				form.addSpacer(318,7)
+				for j, senslbl in pairs(senslbls[sensCat]) do
+					form.addRow(2) 	
+					form.addLabel({label = vars.trans[senslbl]})
+					check_other_device(vars[senslbl], vars.deviceId)
+					form.addSelectbox(sensor_lists[deviceIndex], vars[senslbl][2], true,
+									function (value)
+										if sensor_lists[deviceIndex][value] == "..." then value = 0 end
+										vars[senslbl][1] = vars.deviceId
+										vars[senslbl][2] = value
+										system.pSave(senslbl, vars[senslbl])
+									end,
+									{enabled=show, visible=show} )	
+				end
+				form.addSpacer(318,7)	
+			end
+		end
+										
 	end
 	
 	form.addSpacer(318,7)
 	
-
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label1,font=FONT_BOLD})
 
@@ -244,11 +166,28 @@ local function setup(vars, Version)
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.capacitymAh, width=210})
-	form.addIntbox(vars.capacity, 0, 32767, 0, 0, 10,
+	form.addIntbox(vars.capacity1, 0, 32767, 0, 0, 10,
 						function (value)
-							vars.capacity = value
-							system.pSave("capacity", vars.capacity)
+							vars.capacity1 = value
+							system.pSave("capacity1", vars.capacity1)
 						end, {label=" mAh"} )
+	
+	form.addRow(2)
+	form.addLabel({label=vars.trans.capacity2mAh, width=210})
+	form.addIntbox(vars.capacity2, 0, 32767, 0, 0, 10,
+						function (value)
+							vars.capacity2 = value
+							system.pSave("capacity2", vars.capacity2)
+						end, {label=" mAh"} )
+						
+	form.addRow(2)
+	form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
+	form.addInputbox(vars.akkuSw,true,
+						function (value)
+              vars.akkuSw = value
+              system.pSave("akkuSw", vars.akkuSw)
+						end)						
+						
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.cellcnt, width=210})
@@ -268,10 +207,9 @@ local function setup(vars, Version)
     
 	form.addRow(2)
 	form.addLabel({label=vars.trans.voltAlarmThresh, width=210})
-	form.addIntbox(vars.voltage_alarm_thresh,0,1000,0,1,1,
+	form.addIntbox(vars.voltage_alarm_thresh,0,10000,0,2,5,
 						function (value)
 							vars.voltage_alarm_thresh=value
-						--	vars.voltage_alarm_dec_thresh = vars.voltage_alarm_thresh / 10
 							system.pSave("voltage_alarm_thresh", vars.voltage_alarm_thresh)
 						end, {label=" V"} )
 

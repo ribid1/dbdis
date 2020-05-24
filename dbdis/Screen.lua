@@ -1,40 +1,106 @@
-
 local initial_voltage_measured = false
 local initial_pump_voltage_measured = false
 local initial_capacity_percent_used = 0
 local initial_cell_voltage
 local anCapaGo, anVoltGo
-local battery_voltage, battery_voltage_average, motor_current, rotor_rpm, used_capacity = 0.0, -1.0, -1.0, -1, -1
-local bec_current, pwm_percent, fet_temp, throttle = -1, -1, -100, -1
+local battery_voltage, battery_voltage_average, used_capacity = 0.0, -1.0, -1
 local remaining_capacity_percent, remaining_fuel_percent = 100, 100
-local minpwm, maxpwm = 0, 0
-local minrpm, maxrpm, mincur, maxcur= 999, 0, 99.9, 0
-local minvtg, maxvtg, mintmp, maxtmp = 99.9, 0, 99, 0
-local minThrottle, maxThrottle, minIBEC, maxIBEC = 99.9, 0, 99.9, 0
-local status, pump_voltage = "", -1
-local minpump_voltage, maxpump_voltage = 0, 0
-local height, vario = -1000.0, -100.0
-local minheight, maxheight, minvario, maxvario = 999.9, -999.9, 99.9, -99.9
+local minvtg, maxvtg = 99.9, 0
+local status = "" 
 local flightTime, newTime, lastTime, engineTime, lastEngineTime = 0, 0, 0, 0, 0
-local minrxv, maxrxv, minrxa, maxrxa = 9.9, 0.0, 9.9, 0.0
 local next_capacity_announcement, next_voltage_announcement, tickTime = 0, 0, 0
 local next_capacity_alarm, next_voltage_alarm = 0, 0
 local last_averaging_time = 0
 local voltage_alarm_dec_thresh
 local voltages_list = {}
-local rx_voltage, minrx_voltage, rx_percent, minrx_percent = 0.00, 9.9, 0.0, 101.0
-local rx_a1, minrx_a1, rx_a2, minrx_a2 = 0, 99, 0, 99
+local Rx = {}
+local RxTypen = {"rx1", "rx2", "rxB"}
 local gyro_channel_value = 17
-local initialRx = false
-local colorRed = 0
 local counttheFlight, counted = false, false
-local counttheTime = false
+local counttheTime = false  
 local countedTime = 0
 local lastFlightTime = 0
-local iKapAlarm, imaxAlarm = 0, 5
-
+local iKapAlarm, iVoltageAlarm, imaxAlarm = 0, 0, 5
 local today
+local capacity
+local yliDist, yliStart = 0, 0   
+local yreDist, yreStart = 0, 0
+local maxliDraw, maxreDraw = 0, 0
+local xStart
+local yStart
+local iSep   -- Anzahl der Seperatoren mit variablen Abstand
+local iDraw
+local maxDraw  -- maximale Anzahl der Felder
+local xli, xre = 2, 193 -- x Abstand der Anzeigeboxen vom linken Rand
+local lengthSep = 160 - (xre - 160) - xli
 local vars = {}
+local MinMaxlbl = {}
+local drawVal = {}
+local drawfunc = {}
+local leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "Status"}
+local rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI"}
+local notused = {"Rx2Values", "RxBValues"}
+
+local function colstd()
+	lcd.setColor(0,0,0)
+end
+
+local function colmin()
+	lcd.setColor(0,140,0)
+end
+local function colmax()
+	lcd.setColor(0,0,255)
+end
+local function colalarm()
+	lcd.setColor(200,0,0)
+end
+
+
+-- maximal bzw. minimalWerte setzen
+local function setminmax()
+	local i
+	local sens
+	local RxTyp
+	
+	for i,RxTyp in ipairs(RxTypen) do 
+		Rx[RxTyp] = {}
+		Rx[RxTyp].initial = false
+		Rx[RxTyp].voltage = 0
+		Rx[RxTyp].percent = 0
+		Rx[RxTyp].a1 = 0
+		Rx[RxTyp].a2 = 0
+		Rx[RxTyp].mina1 = 99
+		Rx[RxTyp].mina2 = 99
+		Rx[RxTyp].minvoltage = 9.9
+		Rx[RxTyp].minpercent = 101.0
+	end
+	
+	for i, sens in ipairs(MinMaxlbl) do
+		drawVal[sens] = {}
+		drawVal[sens].val = -1000.0
+		drawVal[sens].min = 999.9
+		drawVal[sens].max = -999.9
+		drawVal[sens].measured = true
+	end
+	drawVal.pump_voltage_sens.measured = false
+	drawVal.U1_sens.measured = false
+	drawVal.U2_sens.measured = false
+	drawVal.UsedCap1_sens = {}
+	drawVal.UsedCap1_sens.val = -1000	
+	drawVal.UsedCap2_sens = {}
+	drawVal.UsedCap2_sens.val = -1000
+	drawVal.UsedCap1_sens = {}
+	drawVal.UsedCap1_sens.val = -1000	
+	drawVal.OverI_sens = {}
+	drawVal.OverI_sens.val = -1000
+	
+	initial_voltage_measured = false
+	iKapAlarm = 0
+	iVoltageAlarm = 0
+	minvtg, maxvtg = 99.9, 0
+	collectgarbage()
+end
+
 
 local function saveFlights()
   local file = io.open("Apps/"..vars.appName.."/"..vars.model..".txt", "w+")
@@ -59,38 +125,132 @@ local function loadFlights()
   collectgarbage()
 end
 
-local function init (stpvars)
+local function loadOrder()
+  local line
+  local i, t
+  local column = "left"
+  local value
+  local file
+  local temp = {}
+  
+  if not vars.template then file = io.open("Apps/"..vars.appName.."/"..vars.model.."_O.txt", "r") end
+  if not file then file = io.open("Apps/"..vars.appName.."/".."Template_O.txt", "r") end
+  if file then
+	vars.leftcolumn = {}
+	vars.rightcolumn = {}
+	vars.notused = {}
+	line = io.readline(file)
+	repeat
+		if column == "left" then
+			if line ~= "---" then
+				table.insert(vars.leftcolumn, line)
+				temp[line] = true
+				i = 0
+				for value in string.gmatch(io.readline(file), "%S+") do 
+					i = i + 1
+					if vars.param[line] then
+						if value then vars.param[line][i] = tonumber(value) end
+					else
+						table.remove(vars.leftcolumn)
+					end
+				end
+			else 
+				column = "right"
+			end	
+		elseif column == "right" then 
+			if line ~= "---" then
+				table.insert(vars.rightcolumn, line)
+				temp[line] = true
+				i = 0
+				for value in string.gmatch(io.readline(file), "%S+") do 
+					i = i + 1
+					if vars.param[line] then
+						if value then vars.param[line][i] = tonumber(value) end
+					else
+						table.remove(vars.rightcolumn)
+					end
+				end
+			else 
+				column = "notused"
+			end	
+		else
+			table.insert(vars.notused, line)
+			temp[line] = true
+			i = 0
+			for value in string.gmatch(io.readline(file), "%S+") do 
+				i = i + 1
+				if vars.param[line] then
+					if value then vars.param[line][i] = tonumber(value) end
+				else
+					table.remove(vars.notused)
+				end
+			end
+		end
+		line = io.readline(file)
+	until (not line)
+	io.close(file)
 	
+	for _, t in ipairs(leftcolumn) do 
+		if not temp[t] then table.insert(vars.notused, t) end
+	end
+	for _, t in ipairs(rightcolumn) do 
+		if not temp[t] then table.insert(vars.notused, t) end
+	end
+	for _, t in ipairs(notused) do 
+		if not temp[t] then table.insert(vars.notused, t) end
+	end
+	
+  else
+    vars.leftcolumn = leftcolumn
+    vars.rightcolumn = rightcolumn
+	vars.notused = notused
+  end
+  collectgarbage()
+end
+
+local function init (stpvars)
+	MinMaxlbl = {"motor_current_sens", "bec_current_sens", "pwm_percent_sens", "fet_temp_sens", "throttle_sens", "I1_sens", "I2_sens", "Temp_sens", "rotor_rpm_sens",
+		"altitude_sens", "vario_sens", "U1_sens", "U2_sens", "pump_voltage_sens"}
+ 	setminmax()
 	vars = stpvars
 	today = system.getDateTime()
-	voltage_alarm_dec_thresh = vars.voltage_alarm_thresh / 10
-    loadFlights()
+	voltage_alarm_dec_thresh = vars.voltage_alarm_thresh / 100
+	loadFlights()
+	
 	lastTime = system.getTimeCounter()
 	lastEngineTime = lastTime
-	
+	vars.param = {}
+	-- first value means the thickness of the seperator
+	-- second value means the distance between the boxes, -10 means the distance is calculated
+	vars.param.TotalCount = {0,-9} 		-- TotalTime
+	vars.param.FlightTime = {0,-9}  	-- FlightTime
+	vars.param.EngineTime = {2,-9}  	-- EngineTime
+	vars.param.Rx1Values = {2,-9}	-- Rx1 values
+    vars.param.Rx2Values = {2,-9}	-- Rx2 values
+    vars.param.RxBValues = {2,-9}	-- RxB values  
+	vars.param.RPM = {2,-9}    		-- rpm
+	vars.param.Altitude = {1,-9}   		-- altitude
+	vars.param.Vario = {2,-9}   		-- vario
+	vars.param.Status = {1,-9}    	-- Status
+	vars.param.Volt_per_Cell = {2,-9} 			-- battery voltage
+	vars.param.UsedCapacity = {2,-9} 	-- used capacity
+	vars.param.Current = {2,-9}   		-- Current
+	vars.param.Pump_voltage = {1,-9}    -- Pump voltage
+	vars.param.I_BEC = {1,-9}     		-- IBEC
+	vars.param.Temp = {1 ,-9}      		-- Temperature
+	vars.param.Throttle = {1,-9}    	-- Throttle
+	vars.param.PWM = {1,-9}      	-- PWM
+	vars.param.C1_and_I1 = {1,-9}      	-- CI1
+	vars.param.C2_and_I2 = {1,-9}      	-- CI2
+	vars.param.U1_and_Temp = {1,-9}    -- U1 and Temp
+	vars.param.U2_and_OI = {1,-9}      -- U2 and OverI
+	loadOrder()
 end	
-
 
 local function FaktorAbstand(thick)  -- wenn Dicke der Trennlinie 0 dann nur der einfache Abstand
   if thick == 0 then return 1
   else return 2
   end
-end
-
--- maximal bzw. minimalWerte setzen
-local function setminmax()
-	minrx_a1 = 99
-	minrx_a2 = 99
-	minrx_voltage = 9.9
-	minrx_percent = 101.0
-	minrpm, maxrpm, mincur, maxcur = 999, 0, 99.9, 0
-	minvtg, maxvtg, mintmp, maxtmp = 99.9, 0, 99, 0
-	minrxv, maxrxv, minrxa, maxrxa = 9.9, 0.0, 9.9, 0.0
-	colorRed = 0
-	--initial_voltage_measured = false
-	initialRx = false
-	rx_voltage = 0
-	collectgarbage()
 end
 
 -- maps cell voltages to remainig capacity
@@ -133,6 +293,7 @@ local function FlightTime()
 		lastEngineTime = newTime - engineTime
 		counttheFlight = false
 		counttheTime = false
+    setminmax()
 	end
 	
 	if vars.timeSw ~= nil and timeSw_val ~= 0.0 then 
@@ -179,16 +340,11 @@ local function FlightTime()
 		   
 	collectgarbage()
 end
-
-
-
-
-
-    
+  
 -- Count percentage from cell voltage
 local function get_capacity_percent_used()
 	local result=0
-  local i
+	local i
 	if(initial_cell_voltage > 4.2 or initial_cell_voltage < 3.00)then
 		if(initial_cell_voltage > 4.2)then
 			result=0
@@ -228,10 +384,9 @@ local function average(value)
 	return sum_voltages / #voltages_list
 end    
   
-
 -- Draw Battery and percentage display
 local function drawBattery()
-  if used_capacity > -1 then
+	if used_capacity > -1 then
     local topbat = 40   -- original = 48
     local highbat = 100  -- original = 80
     local widebat = 50
@@ -251,10 +406,10 @@ local function drawBattery()
     lcd.drawFilledRectangle(160-widebat/2, chgY, widebat, chgH) --grün
     lcd.setColor(250,0,0)
     lcd.drawFilledRectangle(160-widebat/2, chgYalarm, widebat, chgHalarm) --rot
-    lcd.setColor(0,0,0)
+    colstd()
     
     -- Text in battery
-    lcd.drawText(160-(lcd.getTextWidth(FONT_BIG, string.format("%s",vars.capacity)) / 2),50, string.format("%s", vars.capacity),FONT_BIG)
+    lcd.drawText(160-(lcd.getTextWidth(FONT_BIG, string.format("%s",capacity)) / 2),50, string.format("%s", capacity),FONT_BIG)
     lcd.drawText(145, 70, "mAh", FONT_NORMAL)
     local yCell = 120
     if gyro_channel_value == 17 then yCell = 141 end
@@ -305,7 +460,7 @@ local function drawTank()
     lcd.drawText(52+ox,-17+oy, "F", FONT_BOLD)  
     lcd.setColor(250,0,0)
     lcd.drawText(52+ox,72+oy, "E", FONT_BOLD) 
-    lcd.setColor(0,0,0)
+    colstd()
     
     -- Tank
     lcd.drawFilledRectangle(midbat-widebat/2-2, topbat, 2, highbat+2)
@@ -330,7 +485,7 @@ local function drawTank()
     lcd.drawFilledRectangle(midbat-widebat/2, chgY, widebat, chgH) --grün
     lcd.setColor(250,0,0)
     lcd.drawFilledRectangle(midbat-widebat/2, chgYalarm, widebat, chgHalarm) --rot
-    lcd.setColor(0,0,0)
+    colstd()
     
     
     -- Percentage Display
@@ -381,534 +536,684 @@ local function drawMibotbox()
 	end
 end	
 
--- Draw voltage per cell
-local function drawVpC(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)    -- Flightpack Voltage
-	local yDraw = 25  -- Höhe der Anzeige ohne Seperator
-  local y = yStart -3
-	if battery_voltage_average > -1 then
-		
-		-- draw fixed Text
-		lcd.drawText(x + 60 - (lcd.getTextWidth(FONT_MINI,vars.trans.mainbat) / 2),y,vars.trans.mainbat,FONT_MINI)  --x=57,y=1
-		lcd.drawText(x, y + 18, "min:", FONT_MINI)
-		--lcd.drawText(x + 51, y + 18, "V", FONT_MINI)
-		lcd.drawText(x + 63, y + 18, "akt:", FONT_MINI)
-		--lcd.drawText(x + 111, y + 18, "V", FONT_MINI)
-		
-
-		-- draw Values, average is average of last 1000 values
-		local deci = "%.2f"
-    local minvperc = 0
-    local battery_voltage_average_perc = battery_voltage_average / vars.cell_count
-		if minvtg == 99.9 then minvperc = 0
-    else minvperc = minvtg/vars.cell_count
-    end
-		if minvperc >= 10.0 then deci = "%.1f" end
-		lcd.drawText(x + 60 - lcd.getTextWidth(FONT_BIG, string.format(deci, minvperc)),y + 10, string.format(deci, minvperc), FONT_BIG)
-		deci = "%.2f"
-		if battery_voltage_average_perc >= 10.0 then deci = "%.1f" end
-		lcd.drawText(x + 119 - lcd.getTextWidth(FONT_BIG, string.format(deci, battery_voltage_average_perc)),y + 10, string.format(deci, battery_voltage_average_perc), FONT_BIG)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
-end
-
-
-
--- Draw Rotor speed box
-local function drawrpmbox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Rotor Speed RPM
-	local yDraw = 36  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 9
-	if rotor_rpm > -1 then
-		
-		lcd.drawText(x + 112, y + 12, "-1", FONT_MINI)
-		--lcd.drawLine (x + 100, y + 21, x + 119, y + 21)
-		lcd.drawText(x + 100, y + 21, "min", FONT_MINI)
-		lcd.drawText(x + 00, y + 35, "Max:", FONT_MINI)
-
-		-- draw Values
-		lcd.drawText(x + 97 - lcd.getTextWidth(FONT_MAXI,string.format("%.0f",rotor_rpm)),y,string.format("%.0f",rotor_rpm),FONT_MAXI)
-		lcd.drawText(x + 95 - lcd.getTextWidth(FONT_MINI,string.format("%.0f",maxrpm)),y + 35, string.format("%.0f", maxrpm), FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
-end
-
--- Draw current box
-local function drawCurrent(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc) -- current
-	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 5
-	if motor_current > -1 then
-		-- draw fixed Text
-		lcd.drawText(x, y, "I", FONT_BIG)
-		lcd.drawText(x + 7, y + 8, "Motor:", FONT_MINI)
-		lcd.drawText(x + 86, y + 8, "A", FONT_MINI)
-		lcd.drawText(x + 96, y, "max:", FONT_MINI)
-			
-		-- draw current 
-		local deci = "%.1f"
-		if motor_current >= 100 then deci = "%.0f" end
-		lcd.drawText(x + 85 - lcd.getTextWidth(FONT_BIG, string.format(deci,motor_current)),y, string.format(deci,motor_current),FONT_BIG)
-		lcd.drawText(x + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0fA",maxcur)) / 2,y + 10, string.format("%.0fA",maxcur),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-      lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
-end
-
--- Draw Receiver values
-local function drawRxValues(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Rx Values
-	local yDraw = 28  -- Höhe der Anzeige ohne Seperator
-	local y = yStart - 2
-	local linedist = 10
-	local x1, x2 = 75, 108
-	local draw_minrx_a1 = minrx_a1
-	local draw_minrx_a2 = minrx_a2
-	local draw_minrx_percent = minrx_percent
-	local draw_minrx_voltage = minrx_voltage
-	
-	-- draw fixed Text
-	lcd.drawText(x + 14, y , "min:", FONT_MINI) 
-	lcd.drawText(x, y + linedist, "URx:", FONT_MINI) 
-	lcd.drawText(x + 17, y + linedist *2, "akt:", FONT_MINI) 
-	
-	lcd.drawText(x + 61, y + 3, "V", FONT_MINI)
-	lcd.drawText(x + 61, y + 20, "V", FONT_MINI)
-	lcd.drawText(x + x1, y, "Q:", FONT_MINI) 
-	lcd.drawText(x + x1, y + linedist, "A1:", FONT_MINI)
-	lcd.drawText(x + x1, y + linedist*2, "A2:", FONT_MINI)
-	
-	-- draw RX Values
-	if draw_minrx_a1 == 99 then draw_minrx_a1 = 0 end
-	if draw_minrx_a2 == 99 then draw_minrx_a2 = 0 end
-	if draw_minrx_percent == 101.0 then draw_minrx_percent = 0 end
-	if draw_minrx_voltage == 9.9 then draw_minrx_voltage = 0 end
-	
-	-- Spannung:	
-	if draw_minrx_voltage < 4.6 then lcd.setColor(colorRed,0,0) end
-	lcd.drawText(x + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",draw_minrx_voltage)),y - 2, string.format("%.1f",draw_minrx_voltage),FONT_BOLD)
-	lcd.setColor(0,0,0)
-  if rx_voltage < 4.6 then lcd.setColor(colorRed,0,0) end
-	lcd.drawText(x + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",rx_voltage)), y + 15, string.format("%.1f",rx_voltage),FONT_BOLD)
-	lcd.setColor(0,0,0)
-  
-	-- Empfangsqualität:
-	if draw_minrx_percent < 100 then lcd.setColor(colorRed,0,0) end
-	lcd.drawText(x + x2 - lcd.getTextWidth(FONT_MINI, string.format("%.0f/",draw_minrx_percent)),y, string.format("%.0f/",draw_minrx_percent),FONT_MINI) --rx_percent
-	lcd.setColor(0,0,0)
-	lcd.drawText(x + x2, y, string.format("%.0f",rx_percent),FONT_MINI)
-	if draw_minrx_a1 < 10 then lcd.setColor(colorRed,0,0) end
-	lcd.drawText(x + x2 - lcd.getTextWidth(FONT_MINI, string.format("%d/",draw_minrx_a1)),y + linedist, string.format("%d/",draw_minrx_a1),FONT_MINI)--x=98-
-	lcd.setColor(0,0,0)
-	lcd.drawText(x + x2, y + linedist, string.format("%d",rx_a1),FONT_MINI)
-	if draw_minrx_a2 < 10 then lcd.setColor(colorRed,0,0) end
-	lcd.drawText(x + x2 - lcd.getTextWidth(FONT_MINI, string.format("%d/",draw_minrx_a2)),y + linedist*2, string.format("%d/",draw_minrx_a2),FONT_MINI)
-	lcd.setColor(0,0,0)
-	lcd.drawText(x + x2, y + linedist*2, string.format("%d",rx_a2),FONT_MINI)
-	iDraw = iDraw + 1
-	if iDraw < maxDraw then
-		lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-		if calc == true then iSep = iSep + 2 end
-		return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-	end		
-	return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-end
-
 -- Draw Total time box
-local function drawTotalCount(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc) --Total flight Time
-  local std, min, sec, y
+function drawfunc.TotalCount() --Total flight Time
+	local std, min, sec, y
 	if vars.timeToCount > 0 then
 		local yDraw = 7  -- Höhe der Anzeige ohne Seperator
 		y = yStart - 3
 		-- draw fixed Text
-		lcd.drawText(x, y, vars.trans.ftime, FONT_MINI)
+		lcd.drawText(xStart, y, vars.trans.ftime, FONT_MINI)
 		
 		-- draw Values
-		lcd.drawText(x + 34,y, string.format("%.0f", vars.totalCount), FONT_MINI) -- Anzahl Flüge gesamt
+		lcd.drawText(xStart + 37,y, string.format("%.0f", vars.totalCount), FONT_MINI) -- Anzahl Flüge gesamt
 		
 		std = math.floor(vars.totalFlighttime / 3600)
 		min = math.floor(vars.totalFlighttime / 60) - (std * 60)
 		sec = vars.totalFlighttime - std * 3600 - min * 60
-		lcd.drawText(x + 122 - lcd.getTextWidth(FONT_MINI, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_MINI) -- total Flight time
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist * FaktorAbstand(thick) / 2, lengthSep, thick)
-			if calc == true then iSep = iSep + FaktorAbstand(thick) end
-			return yStart + yDraw + yDist * FaktorAbstand(thick) + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
+		lcd.drawText(xStart + 122 - lcd.getTextWidth(FONT_MINI, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_MINI) -- total Flight time
+		return yDraw
 	end
+	return 0
 end
 
 -- Draw Flight time box
-local function drawFlightTime(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Flight flight Time
+function drawfunc.FlightTime()	-- Flight flight Time
 	if flightTime > -1 then
 		local yDraw = 13  -- Höhe der Anzeige ohne Seperator
 		local y = yStart - 4
 		local std, min, sec = 0, 0, 0
 
 		-- draw Values
-		lcd.drawText(x + 25 - lcd.getTextWidth(FONT_BIG, string.format("%.0f.", vars.todayCount)),y, string.format("%.0f.", vars.todayCount), FONT_BIG) -- flights today
+		lcd.drawText(xStart + 25 - lcd.getTextWidth(FONT_BIG, string.format("%.0f.", vars.todayCount)),y, string.format("%.0f.", vars.todayCount), FONT_BIG) -- flights today
 		std = math.floor(flightTime / 3600000)
 		min = math.floor(flightTime / 60000) - (std * 60000)
 		sec = (flightTime % 60000) / 1000	
 		if std ~= 0 then
-			lcd.drawText(x + 125 - lcd.getTextWidth(FONT_BIG, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_BIG) -- Flight time
+			lcd.drawText(xStart + 125 - lcd.getTextWidth(FONT_BIG, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_BIG) -- Flight time
 		else
-			lcd.drawText(x + 125 - lcd.getTextWidth(FONT_BIG, string.format("%02d' %02d\"",min, sec)), y, string.format("%02d' %02d\"",min, sec), FONT_BIG) -- Flight time
+			lcd.drawText(xStart + 125 - lcd.getTextWidth(FONT_BIG, string.format("%02d' %02d\"",min, sec)), y, string.format("%02d' %02d\"",min, sec), FONT_BIG) -- Flight time
 		end
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist * FaktorAbstand(thick) / 2, lengthSep, thick)
-			if calc == true then iSep = iSep + FaktorAbstand(thick) end
-			return yStart + yDraw + yDist * FaktorAbstand(thick) + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
+		return yDraw
 	end
+	return 0
 end
 
 -- Draw engine time box
-local function drawEngineTime(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- engine Time
+function drawfunc.EngineTime()	-- engine Time
 	if engineTime > -1 then
 		local yDraw = 11  -- Höhe der Anzeige ohne Seperator
 		local y = yStart - 4
 		local std, min, sec = 0, 0, 0
 		-- draw fixed Text
-		lcd.drawText(x, y + 3, vars.trans.engineTime, FONT_MINI)
+		lcd.drawText(xStart, y + 3, vars.trans.engineTime, FONT_MINI)
 
 		-- draw Values
 		std = math.floor(engineTime / 3600000)
 		min = math.floor(engineTime / 60000) - (std * 60000)
 		sec = (engineTime % 60000) / 1000	
 		if std ~= 0 then
-			lcd.drawText(x + 122 - lcd.getTextWidth(FONT_NORMAL, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_NORMAL) -- engine time
+			lcd.drawText(xStart + 122 - lcd.getTextWidth(FONT_NORMAL, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_NORMAL) -- engine time
 		else
-			lcd.drawText(x + 122 - lcd.getTextWidth(FONT_NORMAL, string.format("%02d' %02d\"", min, sec)), y, string.format("%02d' %02d\"", min, sec), FONT_NORMAL) -- engine time
+			lcd.drawText(xStart + 122 - lcd.getTextWidth(FONT_NORMAL, string.format("%02d' %02d\"", min, sec)), y, string.format("%02d' %02d\"", min, sec), FONT_NORMAL) -- engine time
 		end
 		--lcd.drawText(255, 32, string.format("%02d.%02d.%02d", day.day, day.mon, day.year), FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist * FaktorAbstand(thick) / 2, lengthSep, thick)
-			if calc == true then iSep = iSep + FaktorAbstand(thick) end
-			return yStart + yDraw + yDist * FaktorAbstand(thick) + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDist * FaktorAbstand(thick) / 4, lengthSep, thick)
-			if calc == true then iSep = iSep + FaktorAbstand(thick) end
-			return yStart + yDist * FaktorAbstand(thick) + thick, iDraw, iSep
-		end		
-		return yStart, iDraw, iSep
+		return yDraw
 	end
+	return 0
 end
 
---- Used Capacity
-local function drawUsedCapacity(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc )	-- Used Capacity
-	local yDraw = 33  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 4
-	if used_capacity > -1 then
-		local total_used_capacity = math.ceil( used_capacity + (initial_capacity_percent_used * vars.capacity) / 100 )
-
-		-- draw fixed Text
-		lcd.drawText(x + 60 - (lcd.getTextWidth(FONT_MINI,vars.trans.usedCapa) / 2),y,vars.trans.usedCapa,FONT_MINI)
-		lcd.drawText(x + 96, y + 20, "mAh", FONT_MINI)
-
-		-- draw Values
-		lcd.drawText(x + 94 - lcd.getTextWidth(FONT_MAXI, string.format("%.0f",total_used_capacity)),y + 5, string.format("%.0f",
-					total_used_capacity), FONT_MAXI)
-		--lcd.drawText(258,97, string.format("%s mAh", capacity),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
+-- Draw Receiver values
+function drawRxValues(RxTyp)	-- Rx Values
+	local yDraw = 28  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 2
+	local linedist = 10
+	local x1, x2 = 75, 108
+	local draw_minRx_a1 = 0
+	local draw_minRx_a2 = 0
+	local draw_minRx_percent = 0
+	local draw_minRx_voltage = 0
+	local RxName
+  
+    if  RxTyp == "rx1" then
+      RxName = "Rx1"
+    elseif RxTyp == "rx2" then
+      RxName = "Rx2"
+    else
+      RxName = "RxB"
+    end
+	
+	draw_minRx_a1 = Rx[RxTyp].mina1
+	draw_minRx_a2 = Rx[RxTyp].mina2
+	draw_minRx_percent = Rx[RxTyp].minpercent
+	draw_minRx_voltage = Rx[RxTyp].minvoltage
+	
+    
+    -- draw fixed Text
+    lcd.drawText(xStart + 14, y , "min:", FONT_MINI) 
+    lcd.drawText(xStart, y + linedist + 1, RxName, FONT_MINI) 
+    lcd.drawText(xStart + 17, y + linedist *2, "akt:", FONT_MINI) 
+    
+    lcd.drawText(xStart + 61, y + 3, "V", FONT_MINI)
+    lcd.drawText(xStart + 61, y + 20, "V", FONT_MINI)
+    lcd.drawText(xStart + x1, y, "Q:", FONT_MINI) 
+    lcd.drawText(xStart + x1, y + linedist, "A1:", FONT_MINI)
+    lcd.drawText(xStart + x1, y + linedist*2, "A2:", FONT_MINI)
+    
+    -- draw RX Values
+    if draw_minRx_a1 == 99 then draw_minRx_a1 = 0 end
+    if draw_minRx_a2 == 99 then draw_minRx_a2 = 0 end
+    if draw_minRx_percent == 101.0 then draw_minRx_percent = 0 end
+    if draw_minRx_voltage == 9.9 then draw_minRx_voltage = 0 end
+    
+    -- Spannung:	
+    if draw_minRx_voltage < 4.6 then colalarm() else colmin() end
+    lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",draw_minRx_voltage)),y - 2, string.format("%.1f",draw_minRx_voltage),FONT_BOLD)
+    colstd()
+    if Rx[RxTyp].voltage < 4.6 then colalarm() end
+    lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",Rx[RxTyp].voltage)), y + 15, string.format("%.1f",Rx[RxTyp].voltage),FONT_BOLD)
+    colstd()
+    
+    -- Empfangsqualität:
+    if draw_minRx_percent < 100 then colalarm() else colmin() end
+    lcd.drawText(xStart + x2 - lcd.getTextWidth(FONT_MINI, string.format("%.0f/",draw_minRx_percent)),y, string.format("%.0f/",draw_minRx_percent),FONT_MINI) --Rx_percent
+    colstd()
+    lcd.drawText(xStart + x2, y, string.format("%.0f",Rx[RxTyp].percent),FONT_MINI)
+    if draw_minRx_a1 < 9 then colalarm() else colmin() end
+    lcd.drawText(xStart + x2 - lcd.getTextWidth(FONT_MINI, string.format("%d/",draw_minRx_a1)),y + linedist, string.format("%d/",draw_minRx_a1),FONT_MINI)--xStart=98-
+    colstd()
+    lcd.drawText(xStart + x2, y + linedist, string.format("%d",Rx[RxTyp].a1),FONT_MINI)
+    if draw_minRx_a2 < 9 then colalarm() else colmin() end
+    lcd.drawText(xStart + x2 - lcd.getTextWidth(FONT_MINI, string.format("%d/",draw_minRx_a2)),y + linedist * 2, string.format("%d/",draw_minRx_a2),FONT_MINI)
+    colstd()
+    lcd.drawText(xStart + x2, y + linedist*2, string.format("%d",Rx[RxTyp].a2),FONT_MINI)
+	return yDraw
 end
 
--- Draw Temperature
-local function drawTempbox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Temperature
-	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 5
-	if fet_temp > -100 then
+function drawfunc.Rx1Values()	-- Rx1 Values
+	return drawRxValues("rx1")
+end
+
+function drawfunc.Rx2Values()	-- Rx2 Values
+	return drawRxValues("rx2")
+end
+
+function drawfunc.RxBValues()	-- RxB Values
+	return drawRxValues("rxB")
+end
+
+-- Draw voltage per cell
+function drawfunc.Volt_per_Cell()    -- Flightpack Voltage
+	local yDraw = 25  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 3
+	if battery_voltage_average > -1 then
 		
 		-- draw fixed Text
-		lcd.drawText(x, y + 5, vars.trans.temp, FONT_MINI)
-		lcd.drawText(x + 80, y + 8,"°C",FONT_MINI)
-		lcd.drawText(x + 96, y, "max:", FONT_MINI)
+		lcd.drawText(xStart + 60 - (lcd.getTextWidth(FONT_MINI,vars.trans.mainbat) / 2),y,vars.trans.mainbat,FONT_MINI)  --xStart=57,y=1
+		lcd.drawText(xStart, y + 18, "min:", FONT_MINI)
+		--lcd.drawText(xStart + 51, y + 18, "V", FONT_MINI)
+		lcd.drawText(xStart + 63, y + 18, "akt:", FONT_MINI)
+		--lcd.drawText(xStart + 111, y + 18, "V", FONT_MINI)
+		
+		-- draw Values, average is average of last 1000 values
+		local deci = "%.2f"
+		local minvperc = 0
+		local battery_voltage_average_perc = battery_voltage_average / vars.cell_count
+		if minvtg == 99.9 then minvperc = 0
+    else minvperc = minvtg/vars.cell_count
+    end
+		if minvperc >= 10.0 then deci = "%.1f" end
+		if initial_voltage_measured and minvperc <= voltage_alarm_dec_thresh then colalarm() else colmin() end
+		lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BIG, string.format(deci, minvperc)),y + 10, string.format(deci, minvperc), FONT_BIG)
+		colstd()
+		deci = "%.2f"
+		if battery_voltage_average_perc >= 10.0 then deci = "%.1f" end
+		if initial_voltage_measured and battery_voltage_average_perc <= voltage_alarm_dec_thresh then colalarm() end
+		lcd.drawText(xStart + 119 - lcd.getTextWidth(FONT_BIG, string.format(deci, battery_voltage_average_perc)),y + 10, string.format(deci, battery_voltage_average_perc), FONT_BIG)
+		colstd()
+		return yDraw
+	end
+	return 0
+end
+--- Used Capacity
+function drawfunc.UsedCapacity()	-- Used Capacity
+	local yDraw = 33  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 4
+	if used_capacity > -1 then
+		local total_used_capacity = math.ceil( used_capacity + (initial_capacity_percent_used * capacity) / 100 )
 
-		-- draw Values  
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",fet_temp)),y, string.format("%.0f",fet_temp),FONT_BIG)
-		lcd.drawText(x + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f°C",maxtmp)) / 2,y + 10, string.format("%.0f°C",maxtmp),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end		
+		-- draw fixed Text
+		lcd.drawText(xStart + 60 - (lcd.getTextWidth(FONT_MINI,vars.trans.usedCapa) / 2),y,vars.trans.usedCapa,FONT_MINI)
+		lcd.drawText(xStart + 96, y + 20, "mAh", FONT_MINI)
+
+		-- draw Values
+		lcd.drawText(xStart + 94 - lcd.getTextWidth(FONT_MAXI, string.format("%.0f",total_used_capacity)),y + 5, string.format("%.0f",
+					total_used_capacity), FONT_MAXI)
+		--lcd.drawText(258,97, string.format("%s mAh", capacity),FONT_MINI)
+		return yDraw
+	end
+	return 0
 end
 
 -- Draw Status
-local function drawStatusbox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Status
+function drawfunc.Status()	-- Status
 	local yDraw = 12  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 4
+	local y = yStart - 4	
 	if status ~= "" then
 		
 		-- draw Values  
-		lcd.drawText(x + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, status)/2,y, status,FONT_BOLD)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end		
+		lcd.drawText(xStart + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, status)/2,y, status,FONT_BOLD)
+		return yDraw
+	end
+	return 0	
 end
 
 -- Draw Pump voltage
-local function drawPump_voltagebox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Pump voltage
+function drawfunc.Pump_voltage()	-- Pump voltage
 	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 5
-	if pump_voltage > -1 then
+	local y = yStart - 5
+	local drawminpump_voltage = drawVal.pump_voltage_sens.max
+	if drawVal.pump_voltage_sens.val > -1000 then
 		
 		-- draw fixed Text
-		lcd.drawText(x, y + 5, "U Pump:", FONT_MINI)
-		lcd.drawText(x + 80, y + 8,"V",FONT_MINI)
-		lcd.drawText(x + 96, y, "min:", FONT_MINI)
+		lcd.drawText(xStart, y + 5, "U Pump:", FONT_MINI)
+		lcd.drawText(xStart + 80, y + 8,"V",FONT_MINI)
+		lcd.drawText(xStart + 98, y, "min:", FONT_MINI)
 
 		-- draw Values  
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.1f",pump_voltage)),y, string.format("%.1f",pump_voltage),FONT_BIG)
-		lcd.drawText(x + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.1fV",minpump_voltage)) / 2,y + 10, string.format("%.1fV",minpump_voltage),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end		
+		if drawminpump_voltage == -999.9 then drawminpump_voltage = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.1f",drawVal.pump_voltage_sens.val)),y, string.format("%.1f",drawVal.pump_voltage_sens.val),FONT_BIG)
+		colmin()
+		lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.1fV",drawminpump_voltage)) / 2,y + 10, string.format("%.1fV",drawminpump_voltage),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0		
+end
+
+-- Draw Rotor speed box
+function drawfunc.RPM()	-- Rotor Speed RPM
+	local yDraw = 36  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 9
+	local drawmaxrpm = drawVal.rotor_rpm_sens.max
+	if drawVal.rotor_rpm_sens.val > -1000 then
+		
+		lcd.drawText(xStart + 112, y + 12, "-1", FONT_MINI)
+		lcd.drawText(xStart + 100, y + 21, "min", FONT_MINI)
+		lcd.drawText(xStart + 00, y + 35, "Max:", FONT_MINI)
+
+		-- draw Values
+		if drawmaxrpm == -999.9 then drawmaxrpm = 0 end
+		lcd.drawText(xStart + 97 - lcd.getTextWidth(FONT_MAXI,string.format("%.0f",drawVal.rotor_rpm_sens.val)),y,string.format("%.0f",drawVal.rotor_rpm_sens.val),FONT_MAXI)
+		colmax()
+		lcd.drawText(xStart + 95 - lcd.getTextWidth(FONT_MINI,string.format("%.0f",drawmaxrpm)),y + 35, string.format("%.0f", drawmaxrpm), FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0	
+end
+
+-- Draw current box
+function drawfunc.Current() -- current
+	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 5
+	local drawmaxcur = drawVal.motor_current_sens.max
+	if drawVal.motor_current_sens.val > -1000 then
+		-- draw fixed Text
+		lcd.drawText(xStart, y, "I", FONT_BIG)
+		lcd.drawText(xStart + 7, y + 8, "Motor:", FONT_MINI)
+		lcd.drawText(xStart + 86, y + 8, "A", FONT_MINI)
+		lcd.drawText(xStart + 96, y, "max:", FONT_MINI)
+			
+		-- draw current 
+		if drawmaxcur == -999.9 then drawmaxcur = 0 end
+		local deci = "%.1f"
+		if drawVal.motor_current_sens.val >= 100 then deci = "%.0f" end
+		lcd.drawText(xStart + 85 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.motor_current_sens.val)),y, string.format(deci,drawVal.motor_current_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0fA",drawmaxcur)) / 2,y + 10, string.format("%.0fA",drawmaxcur),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0	
+end
+
+-- Draw Temperature
+function drawfunc.Temp()	-- Temperature
+	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 5
+	local drawmaxtmp = drawVal.fet_temp_sens.max
+	if drawVal.fet_temp_sens.val > -1000 then
+		
+		-- draw fixed Text
+		lcd.drawText(xStart, y + 5, vars.trans.Temp, FONT_MINI)
+		lcd.drawText(xStart + 80, y + 8,"°C",FONT_MINI)
+		lcd.drawText(xStart + 96, y, "max:", FONT_MINI)
+
+		-- draw Values  
+		if drawmaxtmp == -999.9 then drawmaxtmp = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.fet_temp_sens.val)),y, string.format("%.0f",drawVal.fet_temp_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f°C",drawmaxtmp)) / 2,y + 10, string.format("%.0f°C",drawmaxtmp),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0		
 end
 
 -- Draw PWM
-local function drawPWMbox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- PWM
+function drawfunc.PWM()	-- PWM
 	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 5
-    if pwm_percent > -1 then
+	local y = yStart - 5
+	local drawmaxpwm = drawVal.pwm_percent_sens.max
+    if drawVal.pwm_percent_sens.val > -1000 then
 		
 		-- draw fixed Text
-		lcd.drawText(x, y + 5, "PWM:", FONT_MINI)
-		lcd.drawText(x + 80, y + 8,"%",FONT_MINI)
-		lcd.drawText(x + 96, y, "max:", FONT_MINI)
+		lcd.drawText(xStart, y + 5, "PWM:", FONT_MINI)
+		lcd.drawText(xStart + 80, y + 8,"%",FONT_MINI)
+		lcd.drawText(xStart + 96, y, "max:", FONT_MINI)
 
 		-- draw Values  
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",pwm_percent)),y, string.format("%.0f",pwm_percent),FONT_BIG)
-		lcd.drawText(x + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f%%",maxpwm)) / 2,y + 10, string.format("%.0f%%",maxpwm),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end		
+		if drawmaxpwm == -999.9 then drawmaxpwm = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.pwm_percent_sens.val)),y, string.format("%.0f",drawVal.pwm_percent_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f%%",drawmaxpwm)) / 2,y + 10, string.format("%.0f%%",drawmaxpwm),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0		
 end
 
 -- Draw Throttle
-local function drawThrottlebox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Throttle
+function drawfunc.Throttle()	-- Throttle
 	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 5
-	if throttle > -1 then
+	local y = yStart - 5
+	local drawmaxThrottle = drawVal.throttle_sens.max
+	if drawVal.throttle_sens.val > -1000 then
 		
 		-- draw fixed Text
-		lcd.drawText(x, y + 5, "Throttle:", FONT_MINI)
-		lcd.drawText(x + 80, y + 8,"%",FONT_MINI)
-		lcd.drawText(x + 96, y, "max:", FONT_MINI)
+		lcd.drawText(xStart, y + 5, "Throttle:", FONT_MINI)
+		lcd.drawText(xStart + 80, y + 8,"%",FONT_MINI)
+		lcd.drawText(xStart + 96, y, "max:", FONT_MINI)
 
 		-- draw Values  
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",throttle)),y, string.format("%.0f",throttle),FONT_BIG)
-		lcd.drawText(x + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f%%",maxThrottle)) / 2,y + 10, string.format("%.0f%%",maxThrottle),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end		
+		if drawmaxThrottle == -999.9 then drawmaxThrottle = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.throttle_sens.val)),y, string.format("%.0f",drawVal.throttle_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f%%",drawmaxThrottle)) / 2,y + 10, string.format("%.0f%%",drawmaxThrottle),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0		
 end
 
 -- Draw Ibec
-local function drawIBECbox(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc)	-- Ibec
+function drawfunc.I_BEC()	-- Ibec
 	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
-  local y = yStart - 5
-	if bec_current > -1 then
+	local y = yStart - 5
+	local drawmaxIBEC = drawVal.bec_current_sens.max
+	if drawVal.bec_current_sens.val > -1000 then
 		
 		-- draw fixed Text
-		lcd.drawText(x, y + 5, "IBEC:", FONT_MINI)
-		lcd.drawText(x + 80, y + 8,"A",FONT_MINI)
-		lcd.drawText(x + 96, y, "max:", FONT_MINI)
+		lcd.drawText(xStart, y + 5, "IBEC:", FONT_MINI)
+		lcd.drawText(xStart + 80, y + 8,"A",FONT_MINI)
+		lcd.drawText(xStart + 96, y, "max:", FONT_MINI)
 
-		-- draw Values  
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",bec_current)),y, string.format("%.0f",bec_current),FONT_BIG)
-		lcd.drawText(x + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0fA",maxIBEC)) / 2,y + 10, string.format("%.0fA",maxIBEC),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
+		-- draw Values 
+		if drawmaxIBEC == -999.9 then drawmaxIBEC = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.bec_current_sens.val)),y, string.format("%.0f",drawVal.bec_current_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0fA",drawmaxIBEC)) / 2,y + 10, string.format("%.0fA",drawmaxIBEC),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0	
 end
 
-local function drawHeight(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc) -- height
+--Draw Altitude
+function drawfunc.Altitude() -- altitude
 	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
 	local y = yStart - 5
-	local drawmaxheight = maxheight
-	if height > -1000 then
+	local drawmaxaltitude = drawVal.altitude_sens.max
+	if drawVal.altitude_sens.val > -1000 then
 		-- draw fixed Text
-		lcd.drawText(x, y + 6, vars.trans.height, FONT_MINI)
-		lcd.drawText(x + 79, y + 9, "m", FONT_MINI)
-		lcd.drawText(x + 98, y, "max:", FONT_MINI)
+		lcd.drawText(xStart, y + 6, vars.trans.altitude_sens, FONT_MINI)
+		lcd.drawText(xStart + 79, y + 9, "m", FONT_MINI)
+		lcd.drawText(xStart + 98, y, "max:", FONT_MINI)
 			
-		-- draw height
+		-- draw altitude
 		local deci = "%.1f"
-		if height >= 100 or height <= -100 then deci = "%.0f" end
-		if drawmaxheight == -1000 then drawmaxheight = 0 end
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,height)),y + 1, string.format(deci,height),FONT_BIG)
-		lcd.drawText(x + 111 - lcd.getTextWidth(FONT_MINI, string.format("%.0f",drawmaxheight)) / 2,y + 10, string.format("%.0f",drawmaxheight),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-			lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
+		if drawVal.altitude_sens.val >= 100 or drawVal.altitude_sens.val <= -100 then deci = "%.0f" end
+		if drawmaxaltitude == -999.9 then drawmaxaltitude = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.altitude_sens.val)),y + 1, string.format(deci,drawVal.altitude_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 111 - lcd.getTextWidth(FONT_MINI, string.format("%.0f",drawmaxaltitude)) / 2,y + 10, string.format("%.0f",drawmaxaltitude),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0	
 end
 
-local function drawVario(iDraw, maxDraw, iSep, thick, lengthSep, x, yStart, yDist, calc) -- vario
+-- Draw Vario
+function drawfunc.Vario() -- vario
 	local yDraw = 15  -- Höhe der Anzeige ohne Seperator
 	local y = yStart - 5
-	local drawmaxvario = maxvario
-	local drawminvario = minvario
+	local drawmaxvario = drawVal.vario_sens.max
+	local drawminvario = drawVal.vario_sens.min
 	
-	if vario > -1 then
+	if drawVal.vario_sens.val > -1000 then
 		-- draw fixed Text
-		lcd.drawText(x, y + 6, vars.trans.vario, FONT_MINI)
-		lcd.drawText(x + 80, y, "m", FONT_MINI)
-		lcd.drawText(x + 79, y + 1, "___", FONT_MINI)
-		lcd.drawText(x + 82, y + 9, "s", FONT_MINI)
+		lcd.drawText(xStart, y + 6, vars.trans.vario_sens, FONT_MINI)
+		lcd.drawText(xStart + 80, y, "m", FONT_MINI)
+		lcd.drawText(xStart + 79, y + 1, "___", FONT_MINI)
+		lcd.drawText(xStart + 82, y + 9, "s", FONT_MINI)
 				
 		-- draw vario 
 		local deci = "%.1f"
 		--if vario >= 10 or vario <= 10 then deci = "%.0f" end
-		if drawmaxvario == -99.9 then drawmaxvario = 0 end
-		if drawminvario == 99.9 then drawminvario = 0 end
-		lcd.drawText(x + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,vario)),y + 1, string.format(deci,vario),FONT_BIG)
-		lcd.drawText(x + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawmaxvario)),y + 1, string.format("%.1f",drawmaxvario),FONT_MINI)
-		lcd.drawText(x + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawminvario)),y + 10, string.format("%.1f",drawminvario),FONT_MINI)
-		iDraw = iDraw + 1
-		if iDraw < maxDraw then
-      lcd.drawFilledRectangle(x, yStart + yDraw + yDist, lengthSep, thick)
-			if calc == true then iSep = iSep + 2 end
-			return yStart + yDraw + yDist * 2 + thick, iDraw, iSep
-		end		
-		return yStart + yDraw, iDraw, iSep   -- letztes Feld, kein Seperator
-	else
-		return yStart, iDraw, iSep
-	end	
+		if drawmaxvario == -999.9 then drawmaxvario = 0 end
+		if drawminvario == 999.9 then drawminvario = 0 end
+		lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.vario_sens.val)),y + 1, string.format(deci,drawVal.vario_sens.val),FONT_BIG)
+		colmax()
+		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawmaxvario)),y + 1, string.format("%.1f",drawmaxvario),FONT_MINI)
+		colmin()
+		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawminvario)),y + 10, string.format("%.1f",drawminvario),FONT_MINI)
+		colstd()
+		return yDraw
+	end
+	return 0	
 end
 
+-- Draw C1,I1 box
+function drawfunc.C1_and_I1() -- C1, I1
+	local yDraw = 14  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 3
+	local drawmax = drawVal.I1_sens.max
+	local deci
+	if drawVal.UsedCap1_sens.val > -1000 or drawVal.I1_sens.val > -1000 then
+		if drawVal.UsedCap1_sens.val > -1000 then
+			-- draw C1
+			lcd.drawText(xStart, y, "C", FONT_NORMAL)
+			lcd.drawText(xStart + 9, y + 5 , "1:", FONT_MINI)
+			lcd.drawText(xStart + 53, y + 5, "mAh", FONT_MINI)
+			deci = "%.0f"
+			lcd.drawText(xStart + 53 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.UsedCap1_sens.val)),y, string.format(deci,drawVal.UsedCap1_sens.val),FONT_NORMAL)
+		end
+		if drawVal.I1_sens.val > -1000 then
+			-- draw I1
+			lcd.drawText(xStart + 80, y, "I", FONT_NORMAL)
+			lcd.drawText(xStart + 84, y + 5, "1:", FONT_MINI)
+			if drawmax == -999.9 then drawmax = 0 end
+			deci = "%.1fA"
+			lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawVal.I1_sens.val)),y - 1, string.format(deci,drawVal.I1_sens.val),FONT_MINI)
+			colmax()
+			lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1fA",drawmax)),y + 7, string.format("%.1fA",drawmax),FONT_MINI)
+			colstd()
+		end
+		return yDraw
+	end
+	return 0	
+end
+
+-- Draw C2,I2 box
+function drawfunc.C2_and_I2() -- C2, I2
+	local yDraw = 14  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 3
+	local drawmax = drawVal.I2_sens.max
+	local deci
+	if drawVal.UsedCap2_sens.val > -1000 or drawVal.I2_sens.val > -1000 then
+		if drawVal.UsedCap2_sens.val > -1000 then
+			-- draw C1
+			lcd.drawText(xStart, y, "C", FONT_NORMAL)
+			lcd.drawText(xStart + 9, y + 5 , "2:", FONT_MINI)
+			lcd.drawText(xStart + 53, y + 5, "mAh", FONT_MINI)
+			deci = "%.0f"
+			lcd.drawText(xStart + 53 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.UsedCap2_sens.val)),y, string.format(deci,drawVal.UsedCap2_sens.val),FONT_NORMAL)
+		end
+		if drawVal.I2_sens.val > -1000 then
+			-- draw I1
+			lcd.drawText(xStart + 80, y, "I", FONT_NORMAL)
+			lcd.drawText(xStart + 84, y + 5, "2:", FONT_MINI)
+			if drawmax == -999.9 then drawmax = 0 end
+			deci = "%.1fA"
+			lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawVal.I2_sens.val)),y - 1, string.format(deci,drawVal.I2_sens.val),FONT_MINI)
+			colmax()
+			lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1fA",drawmax)),y + 7, string.format("%.1fA",drawmax),FONT_MINI)
+			colstd()
+		end
+		return yDraw
+	end
+	return 0	
+end
+
+-- Draw U1, Temp box
+function drawfunc.U1_and_Temp() -- U1, Temp
+	local yDraw = 14  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 3
+	local drawmin = drawVal.U1_sens.min
+	local drawmax = drawVal.Temp_sens.max
+	local deci
+	if drawVal.U1_sens.val > -1000 or drawVal.Temp_sens.val > -1000 then
+		if drawVal.U1_sens.val > -1000 then
+			-- draw U1
+			lcd.drawText(xStart, y, "U", FONT_NORMAL)
+			lcd.drawText(xStart + 9, y + 5 , "1:", FONT_MINI)
+			lcd.drawText(xStart + 75, y + 5, "V", FONT_MINI)
+			deci = "%.1f"
+			colmin()
+			lcd.drawText(xStart + 41, y + 5, "V", FONT_MINI)
+			if drawmin == 999.9 then drawmin = 0 end
+			lcd.drawText(xStart + 41 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawmin)),y, string.format(deci,drawmin),FONT_NORMAL)
+			colstd()
+			lcd.drawText(xStart + 49, y, "/", FONT_NORMAL)
+			lcd.drawText(xStart + 75 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.U1_sens.val)),y, string.format(deci,drawVal.U1_sens.val),FONT_NORMAL)
+		end
+		if drawVal.Temp_sens.val > -1000 then
+			-- draw Temp
+			lcd.drawText(xStart + 83, y, "T:", FONT_NORMAL)
+			if drawmax == -999.9 then drawmax = 0 end
+			deci = "%.0f°C"
+			lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawVal.Temp_sens.val)),y - 1, string.format(deci,drawVal.Temp_sens.val),FONT_MINI)
+			colmax()
+			lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawmax)),y + 7, string.format(deci,drawmax),FONT_MINI)
+			colstd()
+		end
+		return yDraw
+	end
+	return 0	
+end
+
+-- Draw U2, OverI
+function drawfunc.U2_and_OI() -- U2, OverI
+	local yDraw = 10  -- Höhe der Anzeige ohne Seperator
+	local y = yStart - 5
+	local drawmin = drawVal.U2_sens.min
+	local deci
+	if drawVal.U2_sens.val > -1000 or drawVal.OverI_sens.val > -1000 then
+		if drawVal.U2_sens.val > -1000 then
+			-- draw U1
+			lcd.drawText(xStart, y, "U", FONT_NORMAL)
+			lcd.drawText(xStart + 9, y + 5 , "2:", FONT_MINI)
+			lcd.drawText(xStart + 75, y + 5, "V", FONT_MINI)
+			deci = "%.1f"
+			colmin()
+			lcd.drawText(xStart + 41, y + 5, "V", FONT_MINI)
+			if drawmin == 999.9 then drawmin = 0 end
+			lcd.drawText(xStart + 41 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawmin)),y, string.format(deci,drawmin),FONT_NORMAL)
+			colstd()
+			lcd.drawText(xStart + 49, y, "/", FONT_NORMAL)
+			lcd.drawText(xStart + 75 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.U2_sens.val)),y, string.format(deci,drawVal.U2_sens.val),FONT_NORMAL)
+		end
+		if drawVal.OverI_sens.val > -1000 then
+			-- draw Temp
+			lcd.drawText(xStart + 90, y, "OI:", FONT_NORMAL)
+			deci = "%.0f"
+			if drawVal.OverI_sens.val > 0 then colalarm() end
+			lcd.drawText(xStart + 120 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.OverI_sens.val)),y, string.format(deci,drawVal.OverI_sens.val),FONT_NORMAL)
+			colstd()
+		end
+		return yDraw
+	end
+	return 0	
+end
+
+local function showDisplay()
+	local i,j
+	local yBox
+		
+	colstd()
+ 		
+	--left:	
+	iSep = 0   -- Anzahl der Seperatoren mit variablen Abstand
+	iDraw = 0
+	xStart = xli
+	yStart = yliStart
+	for i,j in ipairs(vars.leftcolumn) do
+		yBox = drawfunc[j]()
+		if yBox > 0 then 
+			iDraw = iDraw + 1
+			if iDraw < maxliDraw then
+				if vars.param[j][2] == -9 then
+					iSep = iSep + FaktorAbstand(vars.param[j][1])
+					lcd.drawFilledRectangle(xli, yStart + yBox + yliDist * FaktorAbstand(vars.param[j][1]) / 2, lengthSep, vars.param[j][1])
+					yStart = yStart + yBox + yliDist * FaktorAbstand(vars.param[j][1]) + vars.param[j][1]
+				else
+					lcd.drawFilledRectangle(xli, yStart + yBox + vars.param[j][2] * FaktorAbstand(vars.param[j][1]) / 2, lengthSep, vars.param[j][1])
+					yStart = yStart + yBox + vars.param[j][2] * FaktorAbstand(vars.param[j][1]) + vars.param[j][1]
+				end	
+			else		
+				yStart = yStart + yBox   -- letztes Feld, kein Seperator
+			end	
+		end
+	end
+	 	 
+	maxliDraw = iDraw
+	yliDist = math.floor((160 - yStart + yliStart + iSep * yliDist) / (iSep + 2))
+	yliStart = math.floor((160 - (yStart - yliStart)) / 2)
+	
+--------------	
+	--right
+	iSep = 0
+	iDraw = 0
+	xStart = xre
+	yStart = yreStart
+	
+	for i,j in ipairs(vars.rightcolumn) do
+		yBox = drawfunc[j]()
+		if yBox > 0 then
+			iDraw = iDraw + 1 
+			if iDraw < maxreDraw then
+				if vars.param[j][2] == -9 then
+					iSep = iSep + FaktorAbstand(vars.param[j][1])
+					lcd.drawFilledRectangle(xre, yStart + yBox + yreDist * FaktorAbstand(vars.param[j][1]) / 2, lengthSep, vars.param[j][1])
+					yStart = yStart + yBox + yreDist * FaktorAbstand(vars.param[j][1]) + vars.param[j][1]
+				else
+					lcd.drawFilledRectangle(xre, yStart + yBox + vars.param[j][2] * FaktorAbstand(vars.param[j][1]) / 2, lengthSep, vars.param[j][1])
+					yStart = yStart + yBox + vars.param[j][2] * FaktorAbstand(vars.param[j][1]) + vars.param[j][1]
+				end				
+			else		
+				yStart = yStart + yBox   -- letztes Feld, kein Seperator
+			end	
+		end		
+	end
+	
+	maxreDraw = iDraw
+	yreDist = math.floor((160 - yStart + yreStart + iSep * yreDist) / (iSep + 2))
+	yreStart = math.floor((160 - (yStart - yreStart)) / 2)
+
+	-- middle
+	drawBattery()
+	drawTank()
+	drawMibotbox()
+
+	collectgarbage()
+end
 
 local function loop()
 	local sensor
-    local txtelemetry
+	local txtelemetry
 	local anCapaGo = system.getInputsVal(vars.anCapaSw)
 	local anVoltGo = system.getInputsVal(vars.anVoltSw)
 	local tickTime = system.getTime()
-  
+	local i
+	local sens
+    
 	FlightTime()
-	
-	
+		
 	if vars.gyChannel ~= 17 then gyro_channel_value = system.getInputs(vars.gyro_output)
 	else gyro_channel_value = 17
 	end
 	
-	
+	if system.getInputsVal(vars.akkuSw) == 1 and vars.capacity2 > 0 then capacity = vars.capacity2
+	else capacity = vars.capacity1
+	end
+		
 	-- Rx values:
 	txtelemetry = system.getTxTelemetry()
-	rx_voltage = txtelemetry.rx1Voltage
-	rx_percent = txtelemetry.rx1Percent 
-	rx_a1 = txtelemetry.RSSI[1]
-	rx_a2 = txtelemetry.RSSI[2]
+	for i,RxTyp in ipairs(RxTypen) do
+		Rx[RxTyp].percent = txtelemetry[RxTyp.."Percent"] 
+		if Rx[RxTyp].initial == false then 
+			if Rx[RxTyp].percent > 99.0 then Rx[RxTyp].initial = true end
+		end
+		if Rx[RxTyp].initial == true then
+			Rx[RxTyp].voltage = txtelemetry[RxTyp.."Voltage"]
+			Rx[RxTyp].a1 = txtelemetry.RSSI[i*2-1]
+			Rx[RxTyp].a2 = txtelemetry.RSSI[i*2]
+			if Rx[RxTyp].voltage > 0.0 and Rx[RxTyp].voltage < Rx[RxTyp].minvoltage then Rx[RxTyp].minvoltage = Rx[RxTyp].voltage end
+			if Rx[RxTyp].percent > 0.0 and Rx[RxTyp].percent < Rx[RxTyp].minpercent then Rx[RxTyp].minpercent = Rx[RxTyp].percent end
+			if Rx[RxTyp].a1 > 0 and Rx[RxTyp].a1 < Rx[RxTyp].mina1 then Rx[RxTyp].mina1 = Rx[RxTyp].a1 end
+			if Rx[RxTyp].a2 > 0 and Rx[RxTyp].a2 < Rx[RxTyp].mina2 then Rx[RxTyp].mina2 = Rx[RxTyp].a2 end
+			--if Rx[RxTyp].percent < 1 then setminmax() end
+		end
+	end 
 	
-	if initialRx == false then 
-		if rx_percent > 99.0 then initialRx = true end
-	end
-	if initialRx == true then
-		if rx_voltage > 0.0 and rx_voltage < minrx_voltage then minrx_voltage = rx_voltage end
-		if rx_percent > 0.0 and rx_percent < minrx_percent then minrx_percent = rx_percent end
-		if rx_a1 > 0 and rx_a1 < minrx_a1 then minrx_a1 = rx_a1 end
-		if rx_a2 > 0 and rx_a2 < minrx_a2 then minrx_a2 = rx_a2 end
-		colorRed = 220
-		if rx_percent < 1 then setminmax() end
-	end
-  
-  	
 	-- Read Sensor Parameter Voltage 
-	sensor = system.getSensorValueByID(vars.sensorId, vars.battery_voltage_param)
-
+	sensor = system.getSensorValueByID(vars.battery_voltage_sens[1], vars.battery_voltage_sens[2])
 	if(sensor and sensor.valid ) then
 		battery_voltage = sensor.value
 	-- guess used capacity from voltage if we started with partially discharged battery 
 		if (initial_voltage_measured == false) then
-			if ( battery_voltage > 3 ) then
+			if ( battery_voltage / vars.cell_count) > 1.1  then
 				initial_voltage_measured = true
 				initial_cell_voltage = battery_voltage / vars.cell_count
 				initial_capacity_percent_used = get_capacity_percent_used()
@@ -916,56 +1221,50 @@ local function loop()
 		end        
 		
 		-- calculate Min/Max Sensor 1
-		if ( battery_voltage < minvtg and battery_voltage > 6 ) then minvtg = battery_voltage end
+		if ( battery_voltage < minvtg and (battery_voltage / vars.cell_count) > 1.1 ) then minvtg = battery_voltage end
 		if battery_voltage > maxvtg then maxvtg = battery_voltage end
 		
 		if newTime >= (last_averaging_time + 1000) then          -- one second period, newTime set from FlightTime()
 			battery_voltage_average = average(battery_voltage)   -- average voltages over n samples
 			last_averaging_time = newTime
 		end
+		
+		if ((battery_voltage_average / vars.cell_count) <= voltage_alarm_dec_thresh and vars.voltage_alarm_voice ~= "..." and next_voltage_alarm < tickTime and iVoltageAlarm < imaxAlarm ) then
+			system.messageBox(vars.trans.voltWarn,2)
+			system.playFile(vars.voltage_alarm_voice,AUDIO_QUEUE)
+			iVoltageAlarm = iVoltageAlarm + 1
+			next_voltage_alarm = tickTime + 5 -- battery voltage alarm every 4 second 
+		end  
+		
+		if(anVoltGo == 1 and tickTime >= next_voltage_announcement) then
+			system.playNumber(battery_voltage, 1, "V", "U Battery")
+			next_voltage_announcement = tickTime + 10 -- say battery voltage every 10 seconds
+		end
 	else
 		battery_voltage = 0
 		initial_voltage_measured = true
-		if vars.battery_voltage_param ~= 0 then 
-      battery_voltage_average = 0
-      initial_voltage_measured = false
-    end
-	end
-	
-	-- Read Sensor Parameter Pump voltage
-	sensor = system.getSensorValueByID(vars.sensorId, vars.pump_voltage_param)
-	if(sensor and sensor.valid) then
-		pump_voltage = sensor.value
-		-- calculate Min/Max Sensor 2
-		if (initial_pump_voltage_measured == false) then
-			if ( pump_voltage > 1 ) then 
-				initial_pump_voltage_measured = true
-				minpump_voltage = 9.9
-			end
-		else
-			if pump_voltage < minpump_voltage then minpump_voltage = pump_voltage end
-			if pump_voltage > maxpump_voltage then maxpump_voltage = pump_voltage end
+		if vars.battery_voltage_sens[2] ~= 0 then 
+			battery_voltage_average = 0
+			initial_voltage_measured = false
 		end
-	else
-		if vars.pump_voltage_param ~= 0 then pump_voltage = 0 end
 	end
 	
 	-- Read Status Parameter 
-	sensor = system.getSensorValueByID(vars.sensorId, vars.status_param)
+	sensor = system.getSensorValueByID(vars.status_sens[1], vars.status_sens[2])
 	if(sensor and sensor.valid) then
 		if Global_TurbineState ~= "" then  status = Global_TurbineState
 			else status = sensor.value
 		end
 	else
-		if vars.status_param ~= 0 then status = "kein Status" end
+		if vars.status_sens[2] ~= 0 then status = "No Status" end
 	end
 	
 	-- Read remaining fuel percent
-	sensor = system.getSensorValueByID(vars.sensorId, vars.remaining_fuel_percent_param)
+	sensor = system.getSensorValueByID(vars.remaining_fuel_percent_sens[1], vars.remaining_fuel_percent_sens[2])
 	if(sensor and sensor.valid) then
 		remaining_fuel_percent = sensor.value
 	else
-		if vars.remaining_fuel_percent_param ~= 0 then 
+		if vars.remaining_fuel_percent_sens[2] ~= 0 then 
 			remaining_fuel_percent = 0 
 		else
 			if Calca_dispGas then remaining_fuel_percent = Calca_dispGas
@@ -973,176 +1272,85 @@ local function loop()
 			end
 		end
 	end
-	
-	
-        
-	-- Read Sensor Parameter Current 
-	sensor = system.getSensorValueByID(vars.sensorId, vars.motor_current_param)
-	if(sensor and sensor.valid) then
-		motor_current = sensor.value
-		-- calculate Min/Max Sensor 2
-		if motor_current < mincur then mincur = motor_current end
-		if motor_current > maxcur then maxcur = motor_current end
-		
-	else
-		if vars.motor_current_param ~= 0 then motor_current = 0 end
-	end
-
-	-- Read Sensor Parameter Rotor RPM
-	sensor = system.getSensorValueByID(vars.sensorId, vars.rotor_rpm_param)
-	if(sensor and sensor.valid) then
-		rotor_rpm = sensor.value
-		-- calculate Min/Max Sensor 3
-		if rotor_rpm < minrpm then minrpm = rotor_rpm end
-		if rotor_rpm > maxrpm then maxrpm = rotor_rpm end
-	else
-		if vars.rotor_rpm_param ~= 0 then rotor_rpm = 0 end
-	end
-	
-
+	                    
 	-- Read Sensor Parameter Used Capacity
-	sensor = system.getSensorValueByID(vars.sensorId, vars.used_capacity_param)
-
-	if(sensor and sensor.valid) then -- and (battery_voltage > 1.0)) then
+	sensor = system.getSensorValueByID(vars.used_capacity_sens[1], vars.used_capacity_sens[2])
+	if(sensor and sensor.valid) then 
 		used_capacity = sensor.value
 
 		if ( initial_voltage_measured == true ) then
-			remaining_capacity_percent = math.floor( ( ( (vars.capacity - used_capacity) * 100) / vars.capacity ) - initial_capacity_percent_used)
+			remaining_capacity_percent = math.floor( ( ( (capacity - used_capacity) * 100) / capacity ) - initial_capacity_percent_used)
 			if remaining_capacity_percent < 0 then remaining_capacity_percent = 0 end
-		end
-            
-		if ( remaining_capacity_percent <= vars.capacity_alarm_thresh and vars.capacity_alarm_voice ~= "..." and next_capacity_alarm < tickTime and iKapAlarm < imaxAlarm ) then
-			system.messageBox(vars.trans.capaWarn,2)
-			system.playFile(vars.capacity_alarm_voice,AUDIO_QUEUE)
-			iKapAlarm = iKapAlarm + 1
-      next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 second
-		end
-        
-		if ( battery_voltage_average <= voltage_alarm_dec_thresh and vars.voltage_alarm_voice ~= "..." and next_voltage_alarm < tickTime ) then
-			system.messageBox(vars.trans.voltWarn,2)
-			system.playFile(vars.voltage_alarm_voice,AUDIO_QUEUE)
-      next_voltage_alarm = tickTime + 5 -- battery voltage alarm every 4 second 
-		end    
-             
-		if(anCapaGo == 1 and tickTime >= next_capacity_announcement) then
-			system.playNumber(remaining_capacity_percent, 0, "%", "Capacity")
-			next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
-		end
-
-		if(anVoltGo == 1 and tickTime >= next_voltage_announcement) then
-			system.playNumber(battery_voltage, 1, "V", "U Battery")
-			next_voltage_announcement = tickTime + 10 -- say battery voltage every 10 seconds
 		end
                  
 		-- Set max/min percentage to 99/0 for drawing
 		if( remaining_capacity_percent > 100 ) then remaining_capacity_percent = 100 end
 		if( remaining_capacity_percent < 0 ) then remaining_capacity_percent = 0 end
 	else
-		if vars.used_capacity_param ~= 0 then
-      if used_capacity == -1 then used_capacity = 0 end 
+		if vars.used_capacity_sens[2] ~= 0 then
+			if used_capacity == -1 then used_capacity = 0 end 
 		else
 			if Calca_dispFuel then 
-        vars.capacity = Calca_capacity
+				vars.capacity = Calca_capacity
 				used_capacity = Calca_capacity * (1 - Calca_dispFuel / 100)
 				remaining_capacity_percent = Calca_dispFuel
 			else used_capacity = -1 
 			end
 		end
 	end	
-
-
-	-- Read Sensor Parameter 6 BEC Current
-	sensor = system.getSensorValueByID(vars.sensorId, vars.bec_current_param)
-	if(sensor and sensor.valid) then
-		bec_current = sensor.value 
-		if bec_current < minIBEC then minIBEC = bec_current end
-		if bec_current > maxIBEC then maxIBEC = bec_current end
-	else
-		if vars.bec_current_param ~= 0 then bec_current = 0 end
-	end
-
-	-- Read Sensor Parameter Governor PWM
-	sensor = system.getSensorValueByID(vars.sensorId, vars.pwm_percent_param)
-	if(sensor and sensor.valid) then
-		pwm_percent = sensor.value
-		if pwm_percent < minpwm then minpwm = pwm_percent end
-		if pwm_percent > maxpwm then maxpwm = pwm_percent end
-	else
-		if vars.pwm_percent_param ~= 0 then pwm_percent = 0 end
-	end
-
-	-- Read Sensor Parameter FET Temperature
-	sensor = system.getSensorValueByID(vars.sensorId, vars.fet_temp_param)
-	if(sensor and sensor.valid) then
-		fet_temp = sensor.value 
-		if fet_temp < mintmp then mintmp = fet_temp end
-		if fet_temp > maxtmp then maxtmp = fet_temp end
-	else
-		if vars.fet_temp_param ~= 0 then fet_temp = 0 end
+	
+	if ((remaining_capacity_percent > 0 and remaining_capacity_percent <= vars.capacity_alarm_thresh) or (remaining_fuel_percent > 0 and remaining_fuel_percent <= vars.capacity_alarm_thresh))
+		and vars.capacity_alarm_voice ~= "..." and next_capacity_alarm < tickTime and iKapAlarm < imaxAlarm then
+			system.messageBox(vars.trans.capaWarn,2)
+			system.playFile(vars.capacity_alarm_voice,AUDIO_QUEUE)
+			iKapAlarm = iKapAlarm + 1
+			next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
 	end
 	
-	-- Read Sensor Parameter Throttle
-	sensor = system.getSensorValueByID(vars.sensorId, vars.throttle_param)
-	if(sensor and sensor.valid) then
-		throttle = sensor.value 
-		if throttle < minThrottle then minThrottle = fet_temp end
-		if throttle > maxThrottle then maxThrottle = fet_temp end
-	else
-		if vars.throttle_param ~= 0 then throttle = 0 end
+	if anCapaGo == 1 and tickTime >= next_capacity_announcement then
+		if remaining_fuel_percent > 0  then
+			system.playNumber(remaining_fuel_percent, 0, "%", "Capacity")
+			next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
+		elseif remaining_capacity_percent > 0 then
+			system.playNumber(remaining_capacity_percent, 0, "%", "Capacity")
+			next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
+		end		
 	end
 	
-	-- Read Sensor Parameter Height 
-	sensor = system.getSensorValueByID(vars.sensorId, vars.height_param)
-	if(sensor and sensor.valid) then
-		height = sensor.value
-		-- calculate Min/Max Sensor 2
-		if height < minheight then minheight = height end
-		if height > maxheight then maxheight = height end
-		
-	else
-		if vars.height_param ~= 0 then height = 0 end
+
+	for i, sens in ipairs(MinMaxlbl) do
+		sensor = system.getSensorValueByID(vars[sens][1], vars[sens][2])
+		if (sensor and sensor.valid) then
+			drawVal[sens].val = sensor.value
+			if drawVal[sens].measured == false then
+				if  drawVal[sens].val > 1 then 
+					drawVal[sens].measured = true
+					drawVal[sens].min = 999.9
+				end
+			else
+				-- calculate Min/Max Sensor
+				if drawVal[sens].val < drawVal[sens].min then drawVal[sens].min = drawVal[sens].val end
+				if drawVal[sens].val > drawVal[sens].max then drawVal[sens].max = drawVal[sens].val end
+			end
+		else
+			if vars[sens][2] ~= 0 then drawVal[sens].val = 0 end
+		end
 	end
 	
-	-- Read Sensor Parameter vario
-	sensor = system.getSensorValueByID(vars.sensorId, vars.vario_param)
-	if(sensor and sensor.valid) then
-		vario = sensor.value
-		-- calculate Min/Max Sensor 2
-		if vario < minvario then minvario = vario end
-		if vario > maxvario then maxvario = vario end
-		
-	else
-		if vars.vario_param ~= 0 then vario = 0 end
+	for i, sens in ipairs({"UsedCap1_sens", "UsedCap2_sens", "OverI_sens"}) do
+		sensor = system.getSensorValueByID(vars[sens][1], vars[sens][2])
+		if (sensor and sensor.valid) then
+			drawVal[sens].val = sensor.value
+		else
+			if vars[sens][2] ~= 0 then drawVal[sens].val = 0 end
+		end
 	end
 	
-	print(system.getCPU())
+	--print(system.getCPU())
 end --loop
 
-
 return {
-	drawSeperator = drawSeperator,
-	drawBattery = drawBattery,
-	drawrpmbox = drawrpmbox,
-	drawCurrent = drawCurrent,
-	drawTotalCount = drawTotalCount,
-	drawFlightTime = drawFlightTime,
-	drawEngineTime = drawEngineTime,
-	drawUsedCapacity = drawUsedCapacity,
-	drawTempbox = drawTempbox,
-	drawMibotbox = drawMibotbox,
-	drawRxValues = drawRxValues,
-	drawVpC = drawVpC,
-	drawTempbox = drawTempbox,
-	drawPWMbox = drawPWMbox,
-	drawThrottlebox = drawThrottlebox,
-	drawIBECbox = drawIBECbox,
-	drawPump_voltagebox = drawPump_voltagebox,
-	drawStatusbox = drawStatusbox,
-	drawTank = drawTank,
-	drawHeight = drawHeight,
-	drawVario = drawVario,
+	showDisplay = showDisplay,
 	loop = loop,
-	init = init,	
-	saveFlights = saveFlights,
-	loadFlights = loadFlights
+	init = init
 }
