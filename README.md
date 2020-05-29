@@ -2,6 +2,7 @@
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
+  
 The dbdis app is specially designed for the jeti transmitters with a coloured display.  
 For example the min. values are green, max. values are blue and the alarm values are red, but you can easily change it, how you like them.  
   
