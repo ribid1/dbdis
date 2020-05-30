@@ -6,6 +6,7 @@ It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/
 The dbdis app is specially designed for the jeti transmitters with a coloured display.  
 For example the min. values are green, max. values are blue and the alarm values are red, but you can easily change it, how you like them.  
   
+* Translations in German and in English available
 * Multible Sensors from different devices selectable  
 * Free selection of Device ( JLog2.6, S32 and compatible ) 
 * Very easy and fast configuration, most of it is self explaining
