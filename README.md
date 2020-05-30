@@ -29,7 +29,7 @@ For example the min. values are green, max. values are blue and the alarm values
 * Displays voltage per cell
 * Displays flight time and engine time
 * Displays and counts the total amount of flights and total flight time
-* Displays the turbine status from the TStatus app
+* Displays the turbine status from the TStatus app: https://github.com/ribid1/TStatus
 * Displays the value of Calculated Capacity 4.1 for Gas or Electric, if you don't have a sensor installed:  
 http://swiss-aerodesign.com/calculated-capacity.html
 
