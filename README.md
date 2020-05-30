@@ -46,7 +46,33 @@ http://swiss-aerodesign.com/calculated-capacity.html
   
 ### Configuration:  
 
-![T-Status_configuration](https://github.com/ribid1/TStatus/blob/master/T-Status_configuration.png)
+Select Sensor:  
+![Select Category](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor.png)
+
+Select Category:  
+![Select Category](https://github.com/ribid1/dbdis/blob/master/Select%20Category.png)
+
+Select Sensor Values:  
+![Select Sensor Values 1](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%201.png)
+![Select Sensor Values 2](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%202.png)
+![Select Sensor Values 3](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%203.png)
+
+Setup Announcements:  
+![Setup Announcements](https://github.com/ribid1/dbdis/blob/master/Setup%20Announcements.png)
+
+Setup Battery:  
+![Setup Battery](https://github.com/ribid1/dbdis/blob/master/Setup%20Battery.png)
+
+Setup Time Switches:  
+![Setup Time Switches](https://github.com/ribid1/dbdis/blob/master/Setup%20Time%20Switches.png)
+
+Setup History:  
+![Setup History](https://github.com/ribid1/dbdis/blob/master/Setup%20History.png)
+
+Design the Layout (use the arrow keys to change the order):  
+![Layout 1](https://github.com/ribid1/dbdis/blob/master/Layout_1.png)
+![Layout 2](https://github.com/ribid1/dbdis/blob/master/Layout_2.png)
+![Layout 3](https://github.com/ribid1/dbdis/blob/master/Layout_3.png)
 
 ### History:  
   
