@@ -76,7 +76,7 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "1.9"
+local Version = "2.0"
 local owner = " ", " "
 local Title
 --local mem, maxmem = 0, 0 -- for debug only
