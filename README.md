@@ -39,6 +39,15 @@ http://swiss-aerodesign.com/calculated-capacity.html
 ![QC650](https://github.com/ribid1/dbdis/blob/master/QC650.jpg)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/Predator.jpg)
 
+### Installation:
+* Copy the dbdis.lua or the dbdis.lc and the folder dbdis in the folder: \Apps
+* If you don't want to make any changes in the program code then take the .lc files.
+* Maybe you will edit the code sometime then take the .lua files.
+  
+### Configuration:  
+
+![T-Status_configuration](https://github.com/ribid1/TStatus/blob/master/T-Status_configuration.png)
+
 ### History:  
   
 V1.0 initial release  
