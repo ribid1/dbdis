@@ -70,6 +70,8 @@ Setup History:
 ![Setup History](https://github.com/ribid1/dbdis/blob/master/Setup%20History.png)
 
 Design the Layout (use the arrow keys to change the order):  
+- Sep.: determine the thickness of the seperator line (0 = no seperator)  
+
 ![Layout 1](https://github.com/ribid1/dbdis/blob/master/Layout_1.png)
 ![Layout 2](https://github.com/ribid1/dbdis/blob/master/Layout_2.png)
 ![Layout 3](https://github.com/ribid1/dbdis/blob/master/Layout_3.png)
