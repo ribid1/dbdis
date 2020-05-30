@@ -58,6 +58,7 @@ Select Sensor Values:
 ![Select Sensor Values 3](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%203.png)
 
 Setup Announcements:  
+(The capacity and percent announcements are you used either for the battery as for the fuel)
 ![Setup Announcements](https://github.com/ribid1/dbdis/blob/master/Setup%20Announcements.png)
 
 Setup Battery:  
