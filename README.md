@@ -34,7 +34,27 @@ For example the min. values are green, max. values are blue and the alarm values
 http://swiss-aerodesign.com/calculated-capacity.html
 
 
-Examples:  
+### Examples:  
 ![TDF](https://github.com/ribid1/dbdis/blob/master/TDF.jpg)  
 ![QC650](https://github.com/ribid1/dbdis/blob/master/QC650.jpg)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/Predator.jpg)
+
+### History:  
+  
+V1.0 initial release  
+V1.1 Turbine status and turbine telemetry added  
+V1.2 improvement of the timer function:
+- if you activate the reset switch during the timer runs:  
+    The actual flight will not count and the timer starts at zero again.    
+- if you activate the reset switch during the timer stops, and you have already reached the time limit:  
+    The actual flight will be count and the timer starts at zero again an other flight.  
+    
+- impliment of the CalCa- Gas and the CalCa-Elec App: If you get values from the app they will be used. 
+
+V1.3 select sensors from different devices  
+- save the History (fight counts and total flight time in a file) 
+  
+V1.4 Rx values of 2nd Receiver and Backup Receiver addedV1.5 2nd Battery added  
+V1.6 moved the drawfunctions in the screen modul  
+V1.7 Central box added  
+V2.0 Second Form to change the order of the boxes added  
