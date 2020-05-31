@@ -36,7 +36,8 @@ For example the min. values are green, max. values are blue and the alarm values
 http://swiss-aerodesign.com/calculated-capacity.html
 
 ### Video Links:
-[Helicopters](https://youtu.be/Zso-oRc5-Y8)
+[Helicopters](https://youtu.be/Zso-oRc5-Y8)  
+[Aeroplane with combustion engine](https://youtu.be/Qo8YZW3CySw)  
 
 
 ### Examples:  
