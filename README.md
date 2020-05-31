@@ -1,5 +1,6 @@
 # dbdis
-Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones
+Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
+Latest Version: **2.0**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -96,7 +97,8 @@ V1.2 improvement of the timer function:
 V1.3 select sensors from different devices  
 - save the History (fight counts and total flight time in a file) 
   
-V1.4 Rx values of 2nd Receiver and Backup Receiver addedV1.5 2nd Battery added  
+V1.4 Rx values of 2nd Receiver and Backup Receiver added  
+V1.5 2nd Battery added  
 V1.6 moved the drawfunctions in the screen modul  
 V1.7 Central box added  
 V2.0 Second Form to change the order of the boxes added  
