@@ -34,6 +34,9 @@ For example the min. values are green, max. values are blue and the alarm values
 * Displays the value of Calculated Capacity 4.1 for Gas or Electric, if you don't have a sensor installed:  
 http://swiss-aerodesign.com/calculated-capacity.html
 
+### Video Links:
+[Helicopters](https://youtu.be/Zso-oRc5-Y8)
+
 
 ### Examples:  
 ![TDF](https://github.com/ribid1/dbdis/blob/master/TDF.jpg)  
@@ -59,7 +62,7 @@ Select Sensor Values:
 ![Select Sensor Values 3](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%203.png)
 
 Setup Announcements:  
-(The capacity and percent announcements are you used either for the battery as for the fuel)
+(The capacity and percent announcements are used either for the battery as for the fuel)
 ![Setup Announcements](https://github.com/ribid1/dbdis/blob/master/Setup%20Announcements.png)
 
 Setup Battery:  
