@@ -12,7 +12,7 @@ For example the min. values are green, max. values are blue and the alarm values
 * Very easy and fast configuration, most of it is self explaining
 * The order of the display values can be changed with arrow keys very easily
 * Just values are displayed where you have set a sensor value
-* A small design helps to diplay a lot of values in one window
+* A small design helps to display a lot of values in one window
 * You can use a template design to configure the the full screen window of all models similar
 * One switch for permanent percent capacitiy announcement  
 * One switch for permanent voltage announcement  
