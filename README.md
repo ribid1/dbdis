@@ -41,9 +41,10 @@ http://swiss-aerodesign.com/calculated-capacity.html
 
 
 ### Examples:  
-![TDF](https://github.com/ribid1/dbdis/blob/master/TDF.jpg)  
+![TDF](https://github.com/ribid1/dbdis/blob/master/TDF.jpg)
 ![QC650](https://github.com/ribid1/dbdis/blob/master/QC650.jpg)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/Predator.jpg)
+![Polikarpov](https://github.com/ribid1/dbdis/blob/master/Polikarpov.png)
 
 ### Installation:
 * Copy the dbdis.lua or the dbdis.lc and the folder dbdis in the folder: \Apps
