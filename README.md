@@ -41,10 +41,10 @@ http://swiss-aerodesign.com/calculated-capacity.html
 
 
 ### Examples:  
-![TDF](https://github.com/ribid1/dbdis/blob/master/TDF.jpg)
-![QC650](https://github.com/ribid1/dbdis/blob/master/QC650.jpg)
-![Predator](https://github.com/ribid1/dbdis/blob/master/Predator.jpg)
-![Polikarpov](https://github.com/ribid1/dbdis/blob/master/Polikarpov.png)
+![TDF](https://github.com/ribid1/dbdis/blob/master/dbdis-img/TDF.jpg)
+![QC650](https://github.com/ribid1/dbdis/blob/master/dbdis-img/QC650.jpg)
+![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator.jpg)
+![Polikarpov](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Polikarpov.png)
 
 ### Installation:
 * Copy the dbdis.lua or the dbdis.lc and the folder dbdis in the folder: \Apps
@@ -54,35 +54,35 @@ http://swiss-aerodesign.com/calculated-capacity.html
 ### Configuration:  
 
 Select Sensor:  
-![Select Category](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor.png)
+![Select Category](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Select%20Sensor.png)
 
 Select Category:  
-![Select Category](https://github.com/ribid1/dbdis/blob/master/Select%20Category.png)
+![Select Category](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Select%20Category.png)
 
 Select Sensor Values:  
-![Select Sensor Values 1](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%201.png)
-![Select Sensor Values 2](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%202.png)
-![Select Sensor Values 3](https://github.com/ribid1/dbdis/blob/master/Select%20Sensor%20Values%203.png)
+![Select Sensor Values 1](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Select%20Sensor%20Values%201.png)
+![Select Sensor Values 2](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Select%20Sensor%20Values%202.png)
+![Select Sensor Values 3](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Select%20Sensor%20Values%203.png)
 
 Setup Announcements:  
 (The capacity and percent announcements are used either for the battery as for the fuel)
-![Setup Announcements](https://github.com/ribid1/dbdis/blob/master/Setup%20Announcements.png)
+![Setup Announcements](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20Announcements.png)
 
 Setup Battery:  
-![Setup Battery](https://github.com/ribid1/dbdis/blob/master/Setup%20Battery.png)
+![Setup Battery](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20Battery.png)
 
 Setup Time Switches:  
-![Setup Time Switches](https://github.com/ribid1/dbdis/blob/master/Setup%20Time%20Switches.png)
+![Setup Time Switches](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20Time%20Switches.png)
 
 Setup History:  
-![Setup History](https://github.com/ribid1/dbdis/blob/master/Setup%20History.png)
+![Setup History](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20History.png)
 
 Design the Layout (use the arrow keys to change the order):  
 - Sep.: determine the thickness of the seperator line (0 = no seperator)  
 
-![Layout 1](https://github.com/ribid1/dbdis/blob/master/Layout_1.png)
-![Layout 2](https://github.com/ribid1/dbdis/blob/master/Layout_2.png)
-![Layout 3](https://github.com/ribid1/dbdis/blob/master/Layout_3.png)
+![Layout 1](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_1.png)
+![Layout 2](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_2.png)
+![Layout 3](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_3.png)
 
 ### History:  
   
