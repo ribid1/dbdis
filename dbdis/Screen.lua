@@ -8,7 +8,7 @@ local remaining_capacity_percent, remaining_fuel_percent = 100, 100
 local minvtg, maxvtg = 99.9, 0
 local status = "" 
 local flightTime, newTime, lastTime, engineTime, lastEngineTime = 0, 0, 0, 0, 0
-local next_capacity_announcement, next_voltage_announcement, tickTime = 0, 0, 0
+local next_capacity_announcement, next_value_announcement, next_voltage_announcement, tickTime = 0, 0, 0, 0
 local next_capacity_alarm, next_voltage_alarm = 0, 0
 local last_averaging_time = 0
 local voltage_alarm_dec_thresh
@@ -40,6 +40,8 @@ local drawfunc = {}
 local leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "Status"}
 local rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI"}
 local notused = {"Rx2Values", "RxBValues"}
+local anCapaGo
+local anCapaValGo
 
 local function colstd()
 	lcd.setColor(0,0,0)
@@ -445,6 +447,8 @@ local function drawTank()
     local ox = 120
     local oy = 60
     local left = 168
+	local i
+	local strTank_volume = tostring(vars.tank_volume)
     
      -- gas station symbol
     -- lcd.drawRectangle(51+ox,31+oy,5,9)  
@@ -486,6 +490,14 @@ local function drawTank()
     lcd.setColor(250,0,0)
     lcd.drawFilledRectangle(midbat-widebat/2, chgYalarm, widebat, chgHalarm) --rot
     colstd()
+	
+	 -- Text in Tank
+	
+	for i = 1, #strTank_volume do
+		lcd.drawText(146,30 + i * 15, string.sub(strTank_volume, i,i),FONT_NORMAL)
+	end
+    lcd.drawText(141, 45 + #strTank_volume * 15, "ml", FONT_NORMAL)
+
     
     
     -- Percentage Display
@@ -1172,11 +1184,25 @@ end
 local function loop()
 	local sensor
 	local txtelemetry
-	local anCapaGo = system.getInputsVal(vars.anCapaSw)
 	local anVoltGo = system.getInputsVal(vars.anVoltSw)
 	local tickTime = system.getTime()
 	local i
 	local sens
+	local temp
+	
+	temp = system.getInputsVal(vars.anCapaSw)
+	if anCapaGo ~= temp then
+		anCapaGo = temp
+		next_capacity_announcement = tickTime
+	end
+	
+	temp = system.getInputsVal(vars.anCapaValSw)
+	if anCapaValGo ~= temp then
+		anCapaValGo = temp
+		next_value_announcement = tickTime
+	end
+	
+		
     
 	FlightTime()
 		
@@ -1267,8 +1293,11 @@ local function loop()
 		if vars.remaining_fuel_percent_sens[2] ~= 0 then 
 			remaining_fuel_percent = 0 
 		else
-			if Calca_dispGas then remaining_fuel_percent = Calca_dispGas
-							 else remaining_fuel_percent = -1 
+			if Calca_dispGas then 
+				remaining_fuel_percent = Calca_dispGas
+				vars.tank_volume = Calca_selTank
+				vars.capacity_alarm_thresh = Calca_sgBingo
+			else remaining_fuel_percent = -1 
 			end
 		end
 	end
@@ -1291,9 +1320,10 @@ local function loop()
 			if used_capacity == -1 then used_capacity = 0 end 
 		else
 			if Calca_dispFuel then 
-				vars.capacity = Calca_capacity
+				capacity = Calca_capacity
 				used_capacity = Calca_capacity * (1 - Calca_dispFuel / 100)
 				remaining_capacity_percent = Calca_dispFuel
+				vars.capacity_alarm_thresh = Calca_sBingo
 			else used_capacity = -1 
 			end
 		end
@@ -1309,12 +1339,22 @@ local function loop()
 	
 	if anCapaGo == 1 and tickTime >= next_capacity_announcement then
 		if remaining_fuel_percent > 0  then
-			system.playNumber(remaining_fuel_percent, 0, "%", "Capacity")
-			next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
+			system.playNumber(remaining_fuel_percent, 0, "%")
+			next_capacity_announcement = tickTime + 10 -- say fuel percentage every 10 seconds
 		elseif remaining_capacity_percent > 0 then
-			system.playNumber(remaining_capacity_percent, 0, "%", "Capacity")
+			system.playNumber(remaining_capacity_percent, 0, "%")
 			next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
-		end		
+		end	
+	end
+	
+	if anCapaValGo == 1 and tickTime >= next_value_announcement then
+		if remaining_fuel_percent > 0  then
+			system.playNumber(remaining_fuel_percent * vars.tank_volume / 100, 0, "ml")
+			next_value_announcement = tickTime + 10 -- say fuel value every 10 seconds
+		elseif remaining_capacity_percent > 0 then
+			system.playNumber(remaining_capacity_percent * capacity / 100, 0, "mAh")
+			next_value_announcement = tickTime + 10 -- say battery value every 10 seconds
+		end	
 	end
 	
 

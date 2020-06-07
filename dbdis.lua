@@ -37,6 +37,8 @@
 	V1.6 moved the drawfunctions in the screen modul
 	V1.7 Central box added
 	V2.0 Second Form to change the order of the boxes added
+	V2.0 Permanent Value Alarm added
+		 Tank Volume added
 --]]
 
 --[[
@@ -76,7 +78,7 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "2.0"
+local Version = "2.1"
 local owner = " ", " "
 local Title
 --local mem, maxmem = 0, 0 -- for debug only
@@ -329,6 +331,7 @@ local function init(code1)
 	setupvars.appName = appName	
 	setupvars.model = system.getProperty("Model")
 	setupvars.anCapaSw = system.pLoad("anCapaSw")
+	setupvars.anCapaValSw = system.pLoad("anCapaValSw")
 	setupvars.anVoltSw = system.pLoad("anVoltSw")
 	setupvars.voltage_alarm_voice = system.pLoad("voltage_alarm_voice", "...")
 	setupvars.capacity_alarm_voice = system.pLoad("capacity_alarm_voice", "...")
@@ -336,6 +339,7 @@ local function init(code1)
 	setupvars.capacity2 = system.pLoad("capacity2",0)
 	setupvars.akkuSw = system.pLoad("akkuSw")	
 	setupvars.cell_count = system.pLoad("cell_count",1)
+	setupvars.tank_volume = system.pLoad("tank_volume",0)
 	setupvars.capacity_alarm_thresh = system.pLoad("capacity_alarm_thresh", 0)
 	setupvars.voltage_alarm_thresh = system.pLoad("voltage_alarm_thresh", 0)
 	setupvars.timeSw = system.pLoad("timeSw")

@@ -122,13 +122,22 @@ local function setup(vars, Version, senslbls)
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label1,font=FONT_BOLD})
 
-	form.addRow(2)
+	form.addRow(2) -- Switch for % announcement
 	form.addLabel({label=vars.trans.anCapaSw, width=220})
 	form.addInputbox(vars.anCapaSw,true,
 						function (value)
 							vars.anCapaSw = value
 							system.pSave("anCapaSw", vars.anCapaSw)
 						end )
+						
+	form.addRow(2) -- Switch for value announcement
+	form.addLabel({label=vars.trans.anValueSw, width=220})
+	form.addInputbox(vars.anCapaValSw,true,
+						function (value)
+							vars.anCapaValSw = value
+							system.pSave("anCapaValSw", vars.anCapaValSw)
+						end )					
+						
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.anVoltSw, width=220})
@@ -163,30 +172,32 @@ local function setup(vars, Version, senslbls)
 
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label2,font=FONT_BOLD})
-
-	form.addRow(2)
-	form.addLabel({label=vars.trans.capacitymAh, width=210})
-	form.addIntbox(vars.capacity1, 0, 32767, 0, 0, 10,
-						function (value)
-							vars.capacity1 = value
-							system.pSave("capacity1", vars.capacity1)
-						end, {label=" mAh"} )
 	
-	form.addRow(2)
-	form.addLabel({label=vars.trans.capacity2mAh, width=210})
-	form.addIntbox(vars.capacity2, 0, 32767, 0, 0, 10,
-						function (value)
-							vars.capacity2 = value
-							system.pSave("capacity2", vars.capacity2)
-						end, {label=" mAh"} )
-						
-	form.addRow(2)
-	form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
-	form.addInputbox(vars.akkuSw,true,
-						function (value)
-              vars.akkuSw = value
-              system.pSave("akkuSw", vars.akkuSw)
-						end)						
+	if not Calca_dispFuel then
+		form.addRow(2)
+		form.addLabel({label=vars.trans.capacitymAh, width=210})
+		form.addIntbox(vars.capacity1, 0, 32767, 0, 0, 10,
+							function (value)
+								vars.capacity1 = value
+								system.pSave("capacity1", vars.capacity1)
+							end, {label=" mAh"} )
+		
+		form.addRow(2)
+		form.addLabel({label=vars.trans.capacity2mAh, width=210})
+		form.addIntbox(vars.capacity2, 0, 32767, 0, 0, 10,
+							function (value)
+								vars.capacity2 = value
+								system.pSave("capacity2", vars.capacity2)
+							end, {label=" mAh"} )
+							
+		form.addRow(2)
+		form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
+		form.addInputbox(vars.akkuSw,true,
+							function (value)
+				  vars.akkuSw = value
+				  system.pSave("akkuSw", vars.akkuSw)
+							end)
+	end
 						
 
 	form.addRow(2)
@@ -196,14 +207,27 @@ local function setup(vars, Version, senslbls)
 							vars.cell_count = value
 							system.pSave("cell_count", vars.cell_count)
 						end, {label=" S"} )
-
-	form.addRow(2)
-	form.addLabel({label=vars.trans.capaAlarmThresh, width=210 })
-	form.addIntbox(vars.capacity_alarm_thresh, 0, 100, 0, 0, 1,
-						function (value)
-							vars.capacity_alarm_thresh = value
-							system.pSave("capacity_alarm_thresh", vars.capacity_alarm_thresh)
-						end, {label=" %"} )
+					
+	if not Calca_dispGas then
+		form.addRow(2)
+		form.addLabel({label=vars.trans.tank_volume, width=210})
+		form.addIntbox(vars.tank_volume, 0, 9900, 0, 0, 10,
+							function (value)
+								vars.tank_volume = value
+								system.pSave("tank_volume", vars.tank_volume)
+							end, {label=" ml"} )
+	end
+						
+						
+	if not Calca_dispFuel and not Calca_dispGas then 
+		form.addRow(2)
+		form.addLabel({label=vars.trans.capaAlarmThresh, width=210 })
+		form.addIntbox(vars.capacity_alarm_thresh, 0, 100, 0, 0, 1,
+							function (value)
+								vars.capacity_alarm_thresh = value
+								system.pSave("capacity_alarm_thresh", vars.capacity_alarm_thresh)
+							end, {label=" %"} )
+	end
     
 	form.addRow(2)
 	form.addLabel({label=vars.trans.voltAlarmThresh, width=210})
