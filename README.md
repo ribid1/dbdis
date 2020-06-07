@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **2.0**
+Latest Version: **2.1**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -16,6 +16,7 @@ For example the min. values are green, max. values are blue and the alarm values
 * A small design helps to display a lot of values in one window
 * You can use a template design to configure the the full screen window of all models similar
 * One switch for permanent percent capacitiy announcement  
+* One switch for permanent remaining capacitiy of mAh or ml announcement
 * One switch for permanent voltage announcement  
 * One switch starts/stops software clock  
 * One switch resets software clock  
@@ -104,3 +105,5 @@ V1.5 2nd Battery added
 V1.6 moved the drawfunctions in the screen modul  
 V1.7 Central box added  
 V2.0 Second Form to change the order of the boxes added  
+V2.1 Permanent Value Alarm added  
+- Tank Volume added
