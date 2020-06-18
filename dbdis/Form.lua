@@ -246,15 +246,15 @@ local function setup(vars, Version, senslbls)
 	form.addLabel({label=vars.trans.timeSw, width=210})-- Schalter für Flugzeit
 	form.addInputbox(vars.timeSw,true,
 						function (value)
-              vars.timeSw = value
-              system.pSave("timeSw", vars.timeSw)
+							  vars.timeSw = value
+							  system.pSave("timeSw", vars.timeSw)
 						end)
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.engineSw, width=210})-- Schalter für Motorlaufzeit
 	form.addInputbox(vars.engineSw,true,
 						function (value)
-              vars.engineSw = value
+							vars.engineSw = value
 							system.pSave("engineSw", vars.engineSw)
 						end)
 						

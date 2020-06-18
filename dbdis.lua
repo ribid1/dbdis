@@ -37,8 +37,9 @@
 	V1.6 moved the drawfunctions in the screen modul
 	V1.7 Central box added
 	V2.0 Second Form to change the order of the boxes added
-	V2.0 Permanent Value Alarm added
+	V2.1 Permanent Value Alarm added
 		 Tank Volume added
+	V2.2 
 --]]
 
 --[[
@@ -78,7 +79,7 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "2.1"
+local Version = "2.2"
 local owner = " ", " "
 local Title
 --local mem, maxmem = 0, 0 -- for debug only
@@ -114,28 +115,35 @@ end
 -- switch to setup context
 local function setupForm(ID)
 	formID = ID
-	Screen = nil						-- comment out if closeForm not available
-	unrequire(appName.."/Screen")		-- comment out if closeForm not available
+	--Screen = nil						-- comment out if closeForm not available
+	--unrequire(appName.."/Screen")		-- comment out if closeForm not available
 	system.unregisterTelemetry(1)		-- comment out if closeForm not available
   
 	collectgarbage()
-
-	Form = require (appName.."/Form")
-	Form2 = require (appName.."/Form2")
 	
-	
-	if (formID == 1) then setupvars = Form.setup(setupvars, Version, senslbls) -- return modified data from user
+	if (formID == 1) then
+		Screen = nil						
+		unrequire(appName.."/Screen")
+		Form2 = nil
+		unrequire(appName.."/Form2")
+		Form = require (appName.."/Form")
+		setupvars = Form.setup(setupvars, Version, senslbls) -- return modified data from user
 	elseif (formID == 2) then 
+		if not Screen then Screen = require (appName.."/Screen") end
+		setupvars = Screen.init(setupvars)
+		Screen = nil						
+		unrequire(appName.."/Screen")
+		Form = nil
+		unrequire(appName.."/Form")
+		Form2 = require (appName.."/Form2")
 		setupvars = Form2.setup(setupvars)
+		form.setButton(3, ":up", ENABLED)
+		form.setButton(4, ":down", ENABLED)
 	end
 
 	form.setButton(1, "1", formID == 1 and HIGHLIGHTED or ENABLED)
 	form.setButton(2, "2", formID == 2 and HIGHLIGHTED or ENABLED)
 
-	if (formID == 2) then
-		form.setButton(3, ":up", ENABLED)
-		form.setButton(4, ":down", ENABLED)
-	end
 	collectgarbage()
 
 end
@@ -150,17 +158,17 @@ local function saveOrder()
 		if file then
 		for i, line in ipairs(setupvars.leftcolumn) do 
 			io.write(file, line, "\n") 
-			io.write(file, setupvars.param[line][1],"   ", setupvars.param[line][2], "\n")  
+			io.write(file, setupvars.param[line].sep,"   ", setupvars.param[line].dist, "\n")  
 		end
 		io.write(file, "---\n")
 		for i, line in ipairs(setupvars.rightcolumn) do 
 			io.write(file, line, "\n") 
-			io.write(file, setupvars.param[line][1],"   ", setupvars.param[line][2], "\n")  
+			io.write(file, setupvars.param[line].sep,"   ", setupvars.param[line].dist, "\n")  
 		end
 		io.write(file, "---\n")
 		for i, line in ipairs(setupvars.notused) do 
 			io.write(file, line, "\n") 
-			io.write(file, setupvars.param[line][1],"   ", setupvars.param[line][2], "\n")  
+			io.write(file, setupvars.param[line].sep,"   ", setupvars.param[line].dist, "\n")  
 		end
 		io.close(file)
 		end
@@ -256,7 +264,7 @@ local function closeForm()
   
 	Form = nil
 	unrequire(appName.."/Form")
-  
+	unrequire(appName.."/Form2")
 	collectgarbage()
 
 	-- register telemetry window again after 500 ms
@@ -280,6 +288,7 @@ local function loop()
     
 		Screen = require(appName.."/Screen")
 		Screen.init(setupvars)
+
     
 		system.registerTelemetry(1, Title, 4, Window)
 		goregisterTelemetry = nil
@@ -328,6 +337,7 @@ local function init(code1)
 			setupvars[senslbl] = system.pLoad(senslbl, { 0, 0 } )
 		end
 	end
+	--setupvars.leftdrawcol = {}
 	setupvars.appName = appName	
 	setupvars.model = system.getProperty("Model")
 	setupvars.anCapaSw = system.pLoad("anCapaSw")

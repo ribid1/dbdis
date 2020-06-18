@@ -47,7 +47,7 @@
 		"ftime":"Flights:",
 		"date":"Date:",
 		"timeSw":"Start Flight Time",
-        "engineSw":"Start Engine Time",
+        	"engineSw":"Start Engine Time",
 		"engineTime":"Engine Time:",
 		"timeToCount":"Time to Count:",
 		"capacitymAh":"Capacity Battery 1:",
@@ -72,7 +72,8 @@
 		"Leftrow":"Left row:",
 		"Rightrow":"Right row:",
 		"notused":"not used:",
-		"explDist":"If Dist. = -9 then the distance is calculated"
+		"explDist":"If Dist. = -9 then the distance is calculated",
+		"explSep":"If Sep. = -1 then the value is edged"
 	},
 	"de":{
 		"appName":"dbdis",
@@ -145,6 +146,7 @@
 		"Leftrow":"Linke Spalte:",
 		"Rightrow":"Rechte Spalte",
 		"notused":"nicht verwendet",
-		"explDist":"Wenn Dist. = -9 dann wird der Abstand berechnet"
+		"explDist":"Wenn Dist. = -9 dann wird der Abstand berechnet",
+		"explSep":"Wenn Sep. = -1 dann wird das Feld umrandet"
 	}
 }
