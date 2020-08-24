@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **2.2**
+Latest Version: **2.3**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -80,7 +80,7 @@ Setup History:
 ![Setup History](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20History.png)
 
 Design the Layout (use the arrow keys to change the order):  
-- Sep.: determine the thickness of the seperator line (0 = no seperator)  
+- Sep.: determine the thickness of the seperator line (0 = no seperator, -1 = value is edged)  
 
 ![Layout 1](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_1.png)
 ![Layout 2](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_2.png)
@@ -109,4 +109,8 @@ V2.0 Second Form to change the order of the boxes added
 V2.1 Permanent Value Alarm added  
 - Tank Volume added  
 
-V2.2 Possibility for a surrounding edge of the value boxes added
+V2.2 Possibility for a surrounding edge of the value boxes added  
+V2.3 The high in pixels of each box is displayed in the layout form
+- Not assigned boxes are shown in small letters
+- The left space in pixel is shown at the top of the right and the left row
+
