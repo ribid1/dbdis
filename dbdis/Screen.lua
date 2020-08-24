@@ -31,9 +31,6 @@ local vars = {}
 local MinMaxlbl = {}
 local drawVal = {}
 local drawfunc = {}
-local leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "Status"}
-local rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI"}
-local notused = {"Rx2Values", "RxBValues"}
 local anCapaGo
 local anCapaValGo
 local yborder = 6
@@ -41,7 +38,6 @@ local yborder = 6
 local function colstd()
 	lcd.setColor(0,0,0)
 end
-
 local function colmin()
 	lcd.setColor(0,140,0)
 end
@@ -51,7 +47,6 @@ end
 local function colalarm()
 	lcd.setColor(200,0,0)
 end
-
 
 -- maximal bzw. minimalWerte setzen
 local function setminmax()
@@ -98,7 +93,6 @@ local function setminmax()
 	collectgarbage()
 end
 
-
 local function saveFlights()
   local file = io.open("Apps/"..vars.appName.."/"..vars.model..".txt", "w+")
   if file then
@@ -122,239 +116,17 @@ local function loadFlights()
   collectgarbage()
 end
 
-local function loadOrder()
-  local line
-  local i, t
-  local column = "left"
-  local value
-  local file
-  local temp = {}
-  
-  if not vars.template then file = io.open("Apps/"..vars.appName.."/"..vars.model.."_O.txt", "r") end
-  if not file then file = io.open("Apps/"..vars.appName.."/".."Template_O.txt", "r") end
-  if file then
-	vars.leftcolumn = {}
-	vars.rightcolumn = {}
-	vars.notused = {}
-	line = io.readline(file)
-	repeat
-		if column == "left" then
-			if line ~= "---" then
-				table.insert(vars.leftcolumn, line)
-				temp[line] = true
-				i = 0
-				for value in string.gmatch(io.readline(file), "%S+") do 
-					i = i + 1
-					if vars.param[line] then
-						if value then 
-							if i == 1 then 
-								vars.param[line].sep = tonumber(value) 
-							elseif i == 2 then 
-								vars.param[line].dist = tonumber(value) 
-							end
-						end
-					else
-						table.remove(vars.leftcolumn)
-					end
-				end
-			else 
-				column = "right"
-			end	
-		elseif column == "right" then 
-			if line ~= "---" then
-				table.insert(vars.rightcolumn, line)
-				temp[line] = true
-				i = 0
-				for value in string.gmatch(io.readline(file), "%S+") do 
-					i = i + 1
-					if vars.param[line] then
-						if value then 
-							if i == 1 then 
-								vars.param[line].sep = tonumber(value) 
-							elseif i == 2 then 
-								vars.param[line].dist = tonumber(value) 
-							end
-						end
-					else
-						table.remove(vars.rightcolumn)
-					end
-				end
-			else 
-				column = "notused"
-			end	
-		else
-			table.insert(vars.notused, line)
-			temp[line] = true
-			i = 0
-			for value in string.gmatch(io.readline(file), "%S+") do 
-				i = i + 1
-				if vars.param[line] then
-					if value then 
-						if i == 1 then 
-							vars.param[line].sep = tonumber(value) 
-						elseif i == 2 then 
-							vars.param[line].dist = tonumber(value) 
-						end
-					end
-				else
-					table.remove(vars.notused)
-				end
-			end
-		end
-		line = io.readline(file)
-	until (not line)
-	io.close(file)
-	
-	for _, t in ipairs(leftcolumn) do 
-		if not temp[t] then table.insert(vars.notused, t) end
-	end
-	for _, t in ipairs(rightcolumn) do 
-		if not temp[t] then table.insert(vars.notused, t) end
-	end
-	for _, t in ipairs(notused) do 
-		if not temp[t] then table.insert(vars.notused, t) end
-	end
-	
-  else
-    vars.leftcolumn = leftcolumn
-    vars.rightcolumn = rightcolumn
-	vars.notused = notused
-  end
-  collectgarbage()
-end
-
-local function calcDistance(column)
-	local i, j, k, l
-	local totalhight = 0
-	local icalc = 0
-	local ycalc = 0
-	local paired
-	local timeSw_val, engineSw_val
-	local drawcolumn = {}
-	
-	for i,j in ipairs(column) do
-		paired = false
-		if #vars.param[j].sensors > 0 then 
-			for k,l in ipairs(vars.param[j].sensors) do
-				if vars[l][2] ~= 0 then paired = true end
-			end
-		else
-			paired = true	
-			if j == "FlightTime" then
-				 timeSw_val = system.getInputsVal(vars.timeSw)
-				 if not (vars.timeSw ~= nil and timeSw_val ~= 0.0) then paired = false end
-			end
-			if j == "EngineTime" then
-				engineSw_val = system.getInputsVal(vars.engineSw)
-				if not (vars.engineSw ~= nil and engineSw_val ~= 0.0) then paired = false end
-			end
-		end
-		if j == "UsedCapacity" and Calca_dispFuel then paired = true end
-		if j == "Status" and Global_TurbineState then paired = true end
-
-		if paired then
-			vars.param[j].visible = true
-			table.insert(drawcolumn, j)
-		else
-			vars.param[j].visible = false
-		end
-	end
-	
-	for i,j in ipairs(drawcolumn) do
-		totalhight = totalhight + vars.param[j].y
-		vars.param[j].sepdraw = vars.param[j].sep
-		vars.param[j].distdraw = vars.param[j].dist
-		if vars.param[j].sep == -1 then 
-			totalhight = totalhight + yborder
-		end
-		if i < #drawcolumn then
-			if vars.param[j].sep > 0 then -- Box mit Trennzeichen
-				if vars.param[drawcolumn[i + 1]].sep == -1 then   -- nachfolgend hat eine Box
-					vars.param[j].sepdraw = 0
-					if vars.param[j].dist > -9 then  -- Distanz angegeben
-						totalhight = totalhight + vars.param[j].dist
-					else --Distanz wird berechnet
-						icalc = icalc + 1
-					end
-				else  -- nachfolgend hat keine Box
-					totalhight = totalhight + vars.param[j].sep
-					if vars.param[j].dist > -9 then  -- Distanz angegeben
-						totalhight = totalhight + vars.param[j].dist * 2
-					else --Distanz wird berechnet
-						icalc = icalc + 2
-					end
-				end
-			else -- Box ohne Trennzeichen
-				if vars.param[j].dist > -9 then    -- Distanz angegeben
-					totalhight = totalhight + vars.param[j].dist
-				else --Distanz wird berechnet
-					icalc = icalc + 1
-				end
-			end
-		else
-			vars.param[j].sepdraw = 0
-		end
-	end
-	
-	ycalc = math.floor((160 - totalhight) / (icalc + 2))
-	
-	for i,j in ipairs(drawcolumn) do
-		if vars.param[j].dist == -9 then 
-			vars.param[j].distdraw = ycalc
-		end
-	end
-	
-	--print(ycalc)
-	return drawcolumn, math.floor((160 - totalhight - icalc * ycalc) / 2)
-	
-end
-
-
-local function init (stpvars)
+local function init (varstemp)
 	MinMaxlbl = {"motor_current_sens", "bec_current_sens", "pwm_percent_sens", "fet_temp_sens", "throttle_sens", "I1_sens", "I2_sens", "Temp_sens", "rotor_rpm_sens",
 		"altitude_sens", "vario_sens", "U1_sens", "U2_sens", "pump_voltage_sens"}
  	setminmax()
-	vars = stpvars
+	vars = varstemp
 	today = system.getDateTime()
 	voltage_alarm_dec_thresh = vars.voltage_alarm_thresh / 100
 	loadFlights()
 	
 	lastTime = system.getTimeCounter()
 	lastEngineTime = lastTime
-	vars.param = {}
-	-- first value means the thickness of the seperator
-	-- second value means the distance between the boxes, -10 means the distance is calculated
-	vars.param.TotalCount = {sep = 0, dist = -9, y = 9, sensors = {}} 		-- TotalTime
-	vars.param.FlightTime = {sep = 0, dist = -9, y = 17, sensors = {}}  	-- FlightTime
-	vars.param.EngineTime = {sep = 2, dist = -9, y = 12, sensors = {}}  	-- EngineTime
-	vars.param.Rx1Values = {sep = 2, dist = -9, y = 29, sensors = {}}	-- Rx1 values
-    vars.param.Rx2Values = {sep = 2, dist = -9, y = 29, sensors = {}}	-- Rx2 values
-    vars.param.RxBValues = {sep = 2, dist = -9, y = 29, sensors = {}}	-- RxB values  
-	vars.param.RPM = {sep = 2, dist = -9, y = 37, sensors = {"rotor_rpm_sens"}}    		-- rpm
-	vars.param.Altitude = {sep = 1, dist = -9, y = 17, sensors = {"altitude_sens"}}   		-- altitude
-	vars.param.Vario = {sep = 2, dist = -9, y = 18, sensors = {"vario_sens"}}   		-- vario
-	vars.param.Status = {sep = 1, dist = -9, y = 12, sensors = {"status_sens"}}    	-- Status
-	vars.param.Volt_per_Cell = {sep = 2, dist = -9, y = 27, sensors = {"battery_voltage_sens"}} 			-- battery voltage
-	vars.param.UsedCapacity = {sep = 2, dist = -9, y = 35, sensors = {"used_capacity_sens"}} 	-- used capacity
-	vars.param.Current = {sep = 2, dist = -9, y = 17, sensors = {"motor_current_sens"}}   		-- Current
-	vars.param.Pump_voltage = {sep = 1, dist = -9, y = 18, sensors = {"pump_voltage_sens"}}    -- Pump voltage
-	vars.param.I_BEC = {sep = 1, dist = -9, y = 17, sensors = {"bec_current_sens"}}     		-- IBEC
-	vars.param.Temp = {sep = 1 , dist = -9, y = 17, sensors = {"fet_temp_sens"}}      		-- Temperature
-	vars.param.Throttle = {sep = 1, dist = -9, y = 17, sensors = {"throttle_sens"}}    	-- Throttle
-	vars.param.PWM = {sep = 1, dist = -9, y = 17, sensors = {"pwm_percent_sens"}}      	-- PWM
-	vars.param.C1_and_I1 = {sep = 1, dist = -9, y = 16, sensors = {"UsedCap1_sens", "I1_sens"}}      	-- CI1
-	vars.param.C2_and_I2 = {sep = 1, dist = -9, y = 16, sensors = {"UsedCap2_sens", "I2_sens"}}      	-- CI2
-	vars.param.U1_and_Temp = {sep = 1, dist = -9, y = 16, sensors = {"U1_sens", "Temp_sens" }}    -- U1 and Temp
-	vars.param.U2_and_OI = {sep = 1, dist = -9, y = 12, sensors = {"U2_sens", "OverI_sens"}}      -- U2 and OverI
-	
-	loadOrder()
-	
-	vars.leftdrawcol, vars.leftstart = calcDistance(vars.leftcolumn)
-	vars.rightdrawcol, vars.rightstart = calcDistance(vars.rightcolumn)
-	calcDistance(vars.notused)
-	
-	return vars
-	
 end
 	
 

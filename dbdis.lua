@@ -39,7 +39,8 @@
 	V2.0 Second Form to change the order of the boxes added
 	V2.1 Permanent Value Alarm added
 		 Tank Volume added
-	V2.2 
+	V2.2 Possibility for a surrounding edge of the value boxes added
+	V2.3
 --]]
 
 --[[
@@ -79,7 +80,7 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "2.2"
+local Version = "2.3"
 local owner = " ", " "
 local Title
 --local mem, maxmem = 0, 0 -- for debug only
@@ -129,8 +130,8 @@ local function setupForm(ID)
 		Form = require (appName.."/Form")
 		setupvars = Form.setup(setupvars, Version, senslbls) -- return modified data from user
 	elseif (formID == 2) then 
-		if not Screen then Screen = require (appName.."/Screen") end
-		setupvars = Screen.init(setupvars)
+		-- if not Screen then Screen = require (appName.."/Screen") end
+		-- setupvars = Screen.init(setupvars)
 		Screen = nil						
 		unrequire(appName.."/Screen")
 		Form = nil
@@ -148,113 +149,16 @@ local function setupForm(ID)
 
 end
 
-local function saveOrder()
-		local filename 
-		if setupvars.template then filename = "Apps/"..setupvars.appName.."/template_O.txt"
-			else filename = "Apps/"..setupvars.appName.."/"..setupvars.model.."_O.txt"
-		end
-		local file = io.open(filename, "w+")
-		local i, line
-		if file then
-		for i, line in ipairs(setupvars.leftcolumn) do 
-			io.write(file, line, "\n") 
-			io.write(file, setupvars.param[line].sep,"   ", setupvars.param[line].dist, "\n")  
-		end
-		io.write(file, "---\n")
-		for i, line in ipairs(setupvars.rightcolumn) do 
-			io.write(file, line, "\n") 
-			io.write(file, setupvars.param[line].sep,"   ", setupvars.param[line].dist, "\n")  
-		end
-		io.write(file, "---\n")
-		for i, line in ipairs(setupvars.notused) do 
-			io.write(file, line, "\n") 
-			io.write(file, setupvars.param[line].sep,"   ", setupvars.param[line].dist, "\n")  
-		end
-		io.close(file)
-		end
-		collectgarbage()
-end
-
-local function moveLine(window, back)
-	local startleft = 5
-	local rowsleft = #setupvars.leftcolumn
-	local startright = startleft + rowsleft + 2
-	local rowsright = #setupvars.rightcolumn
-	local startnotused = startright + rowsright + 2
-	local rowsnotused = #setupvars.notused
-	local row = form.getFocusedRow()
-	if back then
-		if row < startleft then
-			form.setFocusedRow(row - 1)
-		elseif row == startleft then
-			table.insert(setupvars.notused, setupvars.leftcolumn[1])
-			table.remove(setupvars.leftcolumn, 1)
-			form.setFocusedRow(startnotused + rowsnotused - 1)
-		elseif row < startleft + rowsleft then
-			setupvars.leftcolumn[row - startleft],setupvars.leftcolumn[row - startleft + 1]  = setupvars.leftcolumn[row - startleft + 1], setupvars.leftcolumn[row - startleft]
-			form.setFocusedRow(row - 1)
-		elseif row < startright then
-			form.setFocusedRow(row -1)
-		elseif row == startright then
-			table.insert(setupvars.leftcolumn, setupvars.rightcolumn[1])
-			table.remove(setupvars.rightcolumn, 1)
-			form.setFocusedRow(startleft + rowsleft)
-		elseif row < startright + rowsright then
-			setupvars.rightcolumn[row - startright],setupvars.rightcolumn[row - startright + 1]  = setupvars.rightcolumn[row - startright + 1], setupvars.rightcolumn[row - startright]
-			form.setFocusedRow(row - 1)
-		elseif row < startnotused then
-			form.setFocusedRow(row - 1)
-		elseif row < startnotused + rowsnotused then
-			table.insert(setupvars.rightcolumn, setupvars.notused[row - startnotused + 1])
-			table.remove(setupvars.notused, row - startnotused + 1)
-			form.setFocusedRow(startright + rowsright)
-		else
-			form.setFocusedRow(row -1)
-		end
-	else
-		if row < startleft then
-			form.setFocusedRow(row + 1)
-		elseif row < startleft + rowsleft - 1 then
-			setupvars.leftcolumn[row - startleft + 2],setupvars.leftcolumn[row - startleft + 1]  = setupvars.leftcolumn[row - startleft + 1], setupvars.leftcolumn[row - startleft + 2]
-			form.setFocusedRow(row + 1)
-		elseif row == startleft + rowsleft - 1 then
-			table.insert(setupvars.rightcolumn,1, setupvars.leftcolumn[rowsleft])
-			table.remove(setupvars.leftcolumn, rowsleft)
-			form.setFocusedRow(startright - 1)
-		elseif row < startright then
-			form.setFocusedRow(row + 1)
-		elseif row < startright + rowsright - 1 then
-			setupvars.rightcolumn[row - startright + 2],setupvars.rightcolumn[row - startright + 1]  = setupvars.rightcolumn[row - startright + 1], setupvars.rightcolumn[row - startright + 2]
-			form.setFocusedRow(row + 1)
-		elseif row == startright + rowsright -1 then
-			table.insert(setupvars.notused,1, setupvars.rightcolumn[rowsright])
-			table.remove(setupvars.rightcolumn, rowsright)
-			form.setFocusedRow(startnotused - 1)
-		elseif row < startnotused then
-			form.setFocusedRow(row + 1)
-		elseif row < startnotused + rowsnotused then
-			table.insert(setupvars.leftcolumn, 1, setupvars.notused[row - startnotused + 1])
-			table.remove(setupvars.notused, row - startnotused + 1)
-			form.setFocusedRow(startleft)
-		else
-			form.setFocusedRow(row + 1)
-		end
-	end
-	saveOrder()
-end
-
-
-
 local function keyForm(key)
 	if (key == KEY_1 and formID ~= 1) then
 		form.reinit(1)
 	elseif (key == KEY_2 and formID ~= 2) then
 		form.reinit(2)
 	elseif (key == KEY_3 and formID == 2) then
-		moveLine(formID, true)
+		Form2.moveLine(true)
 		form.reinit(formID)
 	elseif (key == KEY_4 and formID == 2) then
-		moveLine(formID)
+		Form2.moveLine()
 		form.reinit(formID)
 	end
 end
@@ -337,7 +241,6 @@ local function init(code1)
 			setupvars[senslbl] = system.pLoad(senslbl, { 0, 0 } )
 		end
 	end
-	--setupvars.leftdrawcol = {}
 	setupvars.appName = appName	
 	setupvars.model = system.getProperty("Model")
 	setupvars.anCapaSw = system.pLoad("anCapaSw")
@@ -385,7 +288,11 @@ local function init(code1)
 
 	unrequire("wifi")	-- there is no hardware present for this module
 	--unrequire("io")	-- can be unloaded if no other App loaded uses file IO 
-
+	Form2 = require (appName.."/Form2")
+	setupvars = Form2.init(setupvars)
+	Form2 = nil
+	unrequire(appName.."/Form2")
+	
 	Screen = require (appName.."/Screen")
 	Screen.init(setupvars)
 
