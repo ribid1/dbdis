@@ -118,7 +118,7 @@ end
 
 local function init (varstemp)
 	MinMaxlbl = {"motor_current_sens", "bec_current_sens", "pwm_percent_sens", "fet_temp_sens", "throttle_sens", "I1_sens", "I2_sens", "Temp_sens", "rotor_rpm_sens",
-		"altitude_sens", "vario_sens", "U1_sens", "U2_sens", "pump_voltage_sens"}
+		"altitude_sens", "speed_sens", "vario_sens", "U1_sens", "U2_sens", "pump_voltage_sens"}
  	setminmax()
 	vars = varstemp
 	today = system.getDateTime()
@@ -741,6 +741,29 @@ function drawfunc.Altitude() -- altitude
 	colstd()
 end
 
+--Draw Speed
+function drawfunc.Speed() -- speed
+	local y = yStart - 4
+	local drawmaxspeed = drawVal.speed_sens.max
+	-- draw fixed Text
+	lcd.drawText(xStart, y + 6, vars.trans.speed_sens, FONT_MINI)
+	lcd.drawText(xStart + 79, y, "km", FONT_MINI)
+	lcd.drawText(xStart + 79, y + 1, "____", FONT_MINI)
+	lcd.drawText(xStart + 84, y + 11, "h", FONT_MINI)
+	lcd.drawText(xStart + 98, y, "max:", FONT_MINI)
+		
+	-- draw speed
+	local deci = "%.1f"
+	if drawVal.speed_sens.val >= 10 or drawVal.speed_sens.val <= -10 then deci = "%.0f" end
+	if drawmaxspeed == -999.9 then drawmaxspeed = 0 end
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.speed_sens.val)),y + 1, string.format(deci,drawVal.speed_sens.val),FONT_BIG)
+	colmax()
+	lcd.drawText(xStart + 111 - lcd.getTextWidth(FONT_MINI, string.format("%.0f",drawmaxspeed)) / 2,y + 10, string.format("%.0f",drawmaxspeed),FONT_MINI)
+	colstd()
+end
+
+
+
 -- Draw Vario
 function drawfunc.Vario() -- vario
 	local y = yStart - 3
@@ -879,46 +902,46 @@ function drawfunc.U2_and_OI() -- U2, OverI
 	end
 end
 
-local function showDisplay()
+local function showDisplay(page)
 	local i,j
 		
 	colstd()
  		
 	--left:	
-	yStart = vars.leftstart
+	yStart = vars[page].leftstart
 	xStart = xli
-	for i,j in ipairs(vars.leftdrawcol) do 
-		if vars.param[j].sep == -1 then
+	for i,j in ipairs(vars[page].leftdrawcol) do 
+		if vars[page][j].sep == -1 then
 			yStart = yStart + yborder / 2
 			drawfunc[j]()
-			lcd.drawRectangle(0, yStart - yborder / 2, 130, vars.param[j].y + yborder, 4)
-			yStart = yStart + vars.param[j].y + yborder / 2 + vars.param[j].distdraw
+			lcd.drawRectangle(0, yStart - yborder / 2, 130, vars[page][j].y + yborder, 4)
+			yStart = yStart + vars[page][j].y + yborder / 2 + vars[page][j].distdraw
 		else
 			drawfunc[j]()
-			yStart = yStart + vars.param[j].y + vars.param[j].distdraw
-			if vars.param[j].sepdraw > 0 then 
-				lcd.drawFilledRectangle(xli, yStart , lengthSep, vars.param[j].sep)
-				yStart = yStart + vars.param[j].sep + vars.param[j].distdraw
+			yStart = yStart + vars[page][j].y + vars[page][j].distdraw
+			if vars[page][j].sepdraw > 0 then 
+				lcd.drawFilledRectangle(xli, yStart , lengthSep, vars[page][j].sep)
+				yStart = yStart + vars[page][j].sep + vars[page][j].distdraw
 			end
 		end
 	end
 	
 --------------	
 	--right
-	yStart = vars.rightstart
+	yStart = vars[page].rightstart
 	xStart = xre
-	for i,j in ipairs(vars.rightdrawcol) do 
-		if vars.param[j].sep == -1 then
+	for i,j in ipairs(vars[page].rightdrawcol) do 
+		if vars[page][j].sep == -1 then
 			yStart = yStart + yborder / 2
 			drawfunc[j]()
-			lcd.drawRectangle(190, yStart - yborder / 2, 128, vars.param[j].y + yborder, 4)
-			yStart = yStart + vars.param[j].y + yborder / 2 + vars.param[j].distdraw
+			lcd.drawRectangle(190, yStart - yborder / 2, 128, vars[page][j].y + yborder, 4)
+			yStart = yStart + vars[page][j].y + yborder / 2 + vars[page][j].distdraw
 		else
 			drawfunc[j]()
-			yStart = yStart + vars.param[j].y + vars.param[j].distdraw
-			if vars.param[j].sepdraw > 0 then 
-				lcd.drawFilledRectangle(xre, yStart , lengthSep, vars.param[j].sep)
-				yStart = yStart + vars.param[j].sep + vars.param[j].distdraw
+			yStart = yStart + vars[page][j].y + vars[page][j].distdraw
+			if vars[page][j].sepdraw > 0 then 
+				lcd.drawFilledRectangle(xre, yStart , lengthSep, vars[page][j].sep)
+				yStart = yStart + vars[page][j].sep + vars[page][j].distdraw
 			end
 		end
 	end

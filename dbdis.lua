@@ -40,7 +40,11 @@
 	V2.1 Permanent Value Alarm added
 		 Tank Volume added
 	V2.2 Possibility for a surrounding edge of the value boxes added
-	V2.3
+	V2.3 V2.3 The high in pixels of each box is displayed in the layout form
+		- Not assigned boxes are shown in small letters
+		- The left space in pixel is shown at the top of the right and the left row
+	V2.4 Second page and speed box added	
+
 --]]
 
 --[[
@@ -80,9 +84,9 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "2.3"
+local Version = "2.4"
 local owner = " ", " "
-local Title
+local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
 local goregisterTelemetry = nil
 local Form, Form2, Screen
@@ -91,8 +95,13 @@ local senslbls = {}
 local formID
 
 -- Telemetry Window
-local function Window(width, height)
-	Screen.showDisplay()
+local function Window1(width, height)
+	Screen.showDisplay(1)
+	collectgarbage()
+end
+
+local function Window2(width, height)
+	Screen.showDisplay(2)
 	collectgarbage()
 end
 
@@ -119,9 +128,13 @@ local function setupForm(ID)
 	--Screen = nil						-- comment out if closeForm not available
 	--unrequire(appName.."/Screen")		-- comment out if closeForm not available
 	system.unregisterTelemetry(1)		-- comment out if closeForm not available
+	system.unregisterTelemetry(2)
   
 	collectgarbage()
-	
+	form.setButton(1, "1", formID == 1 and HIGHLIGHTED or ENABLED)
+	form.setButton(2, "2", formID == 2 and HIGHLIGHTED or ENABLED)
+	form.setButton(3, "3", formID == 3 and HIGHLIGHTED or ENABLED)
+	form.setButton(4, "BAT", formID == 4 and HIGHLIGHTED or ENABLED)
 	if (formID == 1) then
 		Screen = nil						
 		unrequire(appName.."/Screen")
@@ -129,7 +142,8 @@ local function setupForm(ID)
 		unrequire(appName.."/Form2")
 		Form = require (appName.."/Form")
 		setupvars = Form.setup(setupvars, Version, senslbls) -- return modified data from user
-	elseif (formID == 2) then 
+		
+	elseif formID == 2 or formID == 3 then 
 		-- if not Screen then Screen = require (appName.."/Screen") end
 		-- setupvars = Screen.init(setupvars)
 		Screen = nil						
@@ -137,13 +151,11 @@ local function setupForm(ID)
 		Form = nil
 		unrequire(appName.."/Form")
 		Form2 = require (appName.."/Form2")
-		setupvars = Form2.setup(setupvars)
-		form.setButton(3, ":up", ENABLED)
-		form.setButton(4, ":down", ENABLED)
+		setupvars = Form2.setup(setupvars, formID - 1)
+		form.setButton(4, ":up", ENABLED)
+		form.setButton(5, ":down", ENABLED)
 	end
 
-	form.setButton(1, "1", formID == 1 and HIGHLIGHTED or ENABLED)
-	form.setButton(2, "2", formID == 2 and HIGHLIGHTED or ENABLED)
 
 	collectgarbage()
 
@@ -154,11 +166,16 @@ local function keyForm(key)
 		form.reinit(1)
 	elseif (key == KEY_2 and formID ~= 2) then
 		form.reinit(2)
-	elseif (key == KEY_3 and formID == 2) then
+	elseif (key == KEY_3 and formID ~= 3) then
+		form.reinit(3)	
+	elseif key == KEY_4 and (formID == 2 or formID == 3) then
 		Form2.moveLine(true)
 		form.reinit(formID)
-	elseif (key == KEY_4 and formID == 2) then
+	elseif (key == KEY_4 and formID ~= 4) then
+		form.reinit(4)	
+	elseif key == KEY_5 and (formID == 2 or formID == 3) then
 		Form2.moveLine()
+		form.preventDefault()
 		form.reinit(formID)
 	end
 end
@@ -194,7 +211,8 @@ local function loop()
 		Screen.init(setupvars)
 
     
-		system.registerTelemetry(1, Title, 4, Window)
+		system.registerTelemetry(1, Title1, 4, Window1)
+		system.registerTelemetry(2, Title2, 4, Window2)
 		goregisterTelemetry = nil
     
 	end
@@ -232,7 +250,7 @@ local function init(code1)
 	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens"}
 	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens"}
 	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "Temp_sens", "OverI_sens"}
-	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "vario_sens"}
+	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "speed_sens", "vario_sens"}
     	
 	setupvars.deviceId = system.pLoad("deviceId", 0)	-- remember last selectet device
 	setupvars.catsel = system.pLoad("catsel", 1) 		-- selection of sensor category
@@ -263,8 +281,7 @@ local function init(code1)
 	setupvars.todayCount = system.pLoad("todayCount", 0)
 	setupvars.timeToCount = system.pLoad("timeToCount", 120)
 	setupvars.lastDay = system.pLoad("lastDay", 0)
-	setupvars.template = system.pLoad("template", 1) == 1 and true or false
-  
+	
 	today = system.getDateTime()	
 	intToday = math.floor(system.getTime() / 86400)
 	if setupvars.lastDay < intToday then
@@ -278,18 +295,21 @@ local function init(code1)
 	day = string.format("%02d.%02d.%02d", today.day, today.mon, today.year)
 	owner = system.getUserName()
 	lModel = lcd.getTextWidth(FONT_MINI,string.format(setupvars.model))
-	lli = 160 - lcd.getTextWidth(FONT_MINI,string.format(appName.." - "..owner)) -  lModel / 2
+	lli = 160 - lcd.getTextWidth(FONT_MINI,string.format(appName.." - 2 - "..owner)) -  lModel / 2
 	
 	for i = 1, lli/3.2 do spaceLe = spaceLe.." " end
 	for i = 1, (160 - lModel / 2 - lcd.getTextWidth(FONT_MINI,string.format(day)))/3.2 do spaceRi = spaceRi.." " end
-	Title = appName.." - "..owner..spaceLe.. setupvars.model..spaceRi..day
+	Title1 = appName.." - 1 - "..owner..spaceLe.. setupvars.model..spaceRi..day
+	Title2 = appName.." - 2 - "..owner..spaceLe.. setupvars.model..spaceRi..day
 	system.registerForm(1, MENU_MAIN, appName, setupForm, keyForm, nil, closeForm)
-	system.registerTelemetry(1,Title, 4, Window) -- registers a full size Window  
+	system.registerTelemetry(1,Title1, 4, Window1) -- registers a full size Window  
+	system.registerTelemetry(2,Title2, 4, Window2)
 
 	unrequire("wifi")	-- there is no hardware present for this module
 	--unrequire("io")	-- can be unloaded if no other App loaded uses file IO 
 	Form2 = require (appName.."/Form2")
-	setupvars = Form2.init(setupvars)
+	setupvars = Form2.init(setupvars, 1)
+	setupvars = Form2.init(setupvars, 2)
 	Form2 = nil
 	unrequire(appName.."/Form2")
 	

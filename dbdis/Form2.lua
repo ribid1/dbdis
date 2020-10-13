@@ -1,4 +1,4 @@
-local vars
+local vars, page
 local leftcolumn
 local rightcolumn
 local notused
@@ -15,8 +15,8 @@ local function calcDistance(column)
 	
 	for i,j in ipairs(column) do
 		paired = false
-		if #vars.param[j].sensors > 0 then 
-			for k,l in ipairs(vars.param[j].sensors) do
+		if #vars[page][j].sensors > 0 then 
+			for k,l in ipairs(vars[page][j].sensors) do
 				if vars[l][2] ~= 0 then paired = true end
 			end
 		else
@@ -34,54 +34,54 @@ local function calcDistance(column)
 		if j == "Status" and Global_TurbineState then paired = true end
 
 		if paired then
-			vars.param[j].visible = true
+			vars[page][j].visible = true
 			table.insert(drawcolumn, j)
 		else
-			vars.param[j].visible = false
+			vars[page][j].visible = false
 		end
 	end
 	
 	for i,j in ipairs(drawcolumn) do
-		totalhight = totalhight + vars.param[j].y
-		vars.param[j].sepdraw = vars.param[j].sep
-		vars.param[j].distdraw = vars.param[j].dist
-		if vars.param[j].sep == -1 then 
+		totalhight = totalhight + vars[page][j].y
+		vars[page][j].sepdraw = vars[page][j].sep
+		vars[page][j].distdraw = vars[page][j].dist
+		if vars[page][j].sep == -1 then 
 			totalhight = totalhight + yborder
 		end
 		if i < #drawcolumn then
-			if vars.param[j].sep > 0 then -- Box mit Trennzeichen
-				if vars.param[drawcolumn[i + 1]].sep == -1 then   -- nachfolgend hat eine Box
-					vars.param[j].sepdraw = 0
-					if vars.param[j].dist > -9 then  -- Distanz angegeben
-						totalhight = totalhight + vars.param[j].dist
+			if vars[page][j].sep > 0 then -- Box mit Trennzeichen
+				if vars[page][drawcolumn[i + 1]].sep == -1 then   -- nachfolgend hat eine Box
+					vars[page][j].sepdraw = 0
+					if vars[page][j].dist > -9 then  -- Distanz angegeben
+						totalhight = totalhight + vars[page][j].dist
 					else --Distanz wird berechnet
 						icalc = icalc + 1
 					end
 				else  -- nachfolgend hat keine Box
-					totalhight = totalhight + vars.param[j].sep
-					if vars.param[j].dist > -9 then  -- Distanz angegeben
-						totalhight = totalhight + vars.param[j].dist * 2
+					totalhight = totalhight + vars[page][j].sep
+					if vars[page][j].dist > -9 then  -- Distanz angegeben
+						totalhight = totalhight + vars[page][j].dist * 2
 					else --Distanz wird berechnet
 						icalc = icalc + 2
 					end
 				end
 			else -- Box ohne Trennzeichen
-				if vars.param[j].dist > -9 then    -- Distanz angegeben
-					totalhight = totalhight + vars.param[j].dist
+				if vars[page][j].dist > -9 then    -- Distanz angegeben
+					totalhight = totalhight + vars[page][j].dist
 				else --Distanz wird berechnet
 					icalc = icalc + 1
 				end
 			end
 		else
-			vars.param[j].sepdraw = 0
+			vars[page][j].sepdraw = 0
 		end
 	end
 	
 	ycalc = math.floor((160 - totalhight) / (icalc + 2))
 	
 	for i,j in ipairs(drawcolumn) do
-		if vars.param[j].dist == -9 then 
-			vars.param[j].distdraw = ycalc
+		if vars[page][j].dist == -9 then 
+			vars[page][j].distdraw = ycalc
 		end
 	end
 	
@@ -92,31 +92,31 @@ end
 
 local function saveOrder()
 		local filename 
-		if vars.template then filename = "Apps/"..vars.appName.."/template_O.txt"
-			else filename = "Apps/"..vars.appName.."/"..vars.model.."_O.txt"
+		if vars[page].template then filename = "Apps/"..vars.appName.."/template_O"..page..".txt"
+			else filename = "Apps/"..vars.appName.."/"..vars.model.."_O"..page..".txt"
 		end
 		local file = io.open(filename, "w+")
 		local i, line
 		if file then
-			for i, line in ipairs(vars.leftcolumn) do 
+			for i, line in ipairs(vars[page].leftcolumn) do 
 				io.write(file, line, "\n") 
-				io.write(file, vars.param[line].sep,"   ", vars.param[line].dist, "\n")  
+				io.write(file, vars[page][line].sep,"   ", vars[page][line].dist, "\n")  
 			end
 			io.write(file, "---\n")
-			for i, line in ipairs(vars.rightcolumn) do 
+			for i, line in ipairs(vars[page].rightcolumn) do 
 				io.write(file, line, "\n") 
-				io.write(file, vars.param[line].sep,"   ", vars.param[line].dist, "\n")  
+				io.write(file, vars[page][line].sep,"   ", vars[page][line].dist, "\n")  
 			end
 			io.write(file, "---\n")
-			for i, line in ipairs(vars.notused) do 
+			for i, line in ipairs(vars[page].notused) do 
 				io.write(file, line, "\n") 
-				io.write(file, vars.param[line].sep,"   ", vars.param[line].dist, "\n")  
+				io.write(file, vars[page][line].sep,"   ", vars[page][line].dist, "\n")  
 			end
 			io.close(file)
 		end
-		vars.leftdrawcol, vars.leftstart = calcDistance(vars.leftcolumn)
-		vars.rightdrawcol, vars.rightstart = calcDistance(vars.rightcolumn)
-		calcDistance(vars.notused)
+		vars[page].leftdrawcol, vars[page].leftstart = calcDistance(vars[page].leftcolumn)
+		vars[page].rightdrawcol, vars[page].rightstart = calcDistance(vars[page].rightcolumn)
+		calcDistance(vars[page].notused)
 		collectgarbage()
 end
 
@@ -128,31 +128,31 @@ local function loadOrder()
   local file
   local temp = {}
   
-  if not vars.template then file = io.open("Apps/"..vars.appName.."/"..vars.model.."_O.txt", "r") end
-  if not file then file = io.open("Apps/"..vars.appName.."/".."Template_O.txt", "r") end
+  if not vars[page].template then file = io.open("Apps/"..vars.appName.."/"..vars.model.."_O"..page..".txt", "r") end
+  if not file then file = io.open("Apps/"..vars.appName.."/".."Template_O"..page..".txt", "r") end
   if file then
-	vars.leftcolumn = {}
-	vars.rightcolumn = {}
-	vars.notused = {}
+	vars[page].leftcolumn = {}
+	vars[page].rightcolumn = {}
+	vars[page].notused = {}
 	line = io.readline(file)
 	repeat
 		if column == "left" then
 			if line ~= "---" then
-				table.insert(vars.leftcolumn, line)
+				table.insert(vars[page].leftcolumn, line)
 				temp[line] = true
 				i = 0
 				for value in string.gmatch(io.readline(file), "%S+") do 
 					i = i + 1
-					if vars.param[line] then
+					if vars[page][line] then
 						if value then 
 							if i == 1 then 
-								vars.param[line].sep = tonumber(value) 
+								vars[page][line].sep = tonumber(value) 
 							elseif i == 2 then 
-								vars.param[line].dist = tonumber(value) 
+								vars[page][line].dist = tonumber(value) 
 							end
 						end
 					else
-						table.remove(vars.leftcolumn)
+						table.remove(vars[page].leftcolumn)
 					end
 				end
 			else 
@@ -160,42 +160,42 @@ local function loadOrder()
 			end	
 		elseif column == "right" then 
 			if line ~= "---" then
-				table.insert(vars.rightcolumn, line)
+				table.insert(vars[page].rightcolumn, line)
 				temp[line] = true
 				i = 0
 				for value in string.gmatch(io.readline(file), "%S+") do 
 					i = i + 1
-					if vars.param[line] then
+					if vars[page][line] then
 						if value then 
 							if i == 1 then 
-								vars.param[line].sep = tonumber(value) 
+								vars[page][line].sep = tonumber(value) 
 							elseif i == 2 then 
-								vars.param[line].dist = tonumber(value) 
+								vars[page][line].dist = tonumber(value) 
 							end
 						end
 					else
-						table.remove(vars.rightcolumn)
+						table.remove(vars[page].rightcolumn)
 					end
 				end
 			else 
 				column = "notused"
 			end	
 		else
-			table.insert(vars.notused, line)
+			table.insert(vars[page].notused, line)
 			temp[line] = true
 			i = 0
 			for value in string.gmatch(io.readline(file), "%S+") do 
 				i = i + 1
-				if vars.param[line] then
+				if vars[page][line] then
 					if value then 
 						if i == 1 then 
-							vars.param[line].sep = tonumber(value) 
+							vars[page][line].sep = tonumber(value) 
 						elseif i == 2 then 
-							vars.param[line].dist = tonumber(value) 
+							vars[page][line].dist = tonumber(value) 
 						end
 					end
 				else
-					table.remove(vars.notused)
+					table.remove(vars[page].notused)
 				end
 			end
 		end
@@ -204,55 +204,55 @@ local function loadOrder()
 	io.close(file)
 	
 	for _, t in ipairs(leftcolumn) do 
-		if not temp[t] then table.insert(vars.notused, t) end
+		if not temp[t] then table.insert(vars[page].notused, t) end
 	end
 	for _, t in ipairs(rightcolumn) do 
-		if not temp[t] then table.insert(vars.notused, t) end
+		if not temp[t] then table.insert(vars[page].notused, t) end
 	end
 	for _, t in ipairs(notused) do 
-		if not temp[t] then table.insert(vars.notused, t) end
+		if not temp[t] then table.insert(vars[page].notused, t) end
 	end
 	
   else
-    vars.leftcolumn = leftcolumn
-    vars.rightcolumn = rightcolumn
-	vars.notused = notused
+    vars[page].leftcolumn = leftcolumn
+    vars[page].rightcolumn = rightcolumn
+	vars[page].notused = notused
   end
   collectgarbage()
 end
 
 local function moveLine(back)
 	local startleft = 5
-	local rowsleft = #vars.leftcolumn
+	local rowsleft = #vars[page].leftcolumn
 	local startright = startleft + rowsleft + 2
-	local rowsright = #vars.rightcolumn
+	local rowsright = #vars[page].rightcolumn
 	local startnotused = startright + rowsright + 2
-	local rowsnotused = #vars.notused
+	local rowsnotused = #vars[page].notused
 	local row = form.getFocusedRow()
 	if back then
 		if row < startleft then
 			form.setFocusedRow(row - 1)
 		elseif row == startleft then
-			table.insert(vars.notused, vars.leftcolumn[1])
-			table.remove(vars.leftcolumn, 1)
+			table.insert(vars[page].notused, vars[page].leftcolumn[1])
+			table.remove(vars[page].leftcolumn, 1)
 			form.setFocusedRow(startnotused + rowsnotused - 1)
 		elseif row < startleft + rowsleft then
-			vars.leftcolumn[row - startleft],vars.leftcolumn[row - startleft + 1]  = vars.leftcolumn[row - startleft + 1], vars.leftcolumn[row - startleft]
+			vars[page].leftcolumn[row - startleft],vars[page].leftcolumn[row - startleft + 1]  = vars[page].leftcolumn[row - startleft + 1], vars[page].leftcolumn[row - startleft]
 			form.setFocusedRow(row - 1)
 		elseif row < startright then
 			form.setFocusedRow(row -1)
 		elseif row == startright then
-			table.insert(vars.leftcolumn, vars.rightcolumn[1])
-			table.remove(vars.rightcolumn, 1)
+			table.insert(vars[page].leftcolumn, vars[page].rightcolumn[1])
+			table.remove(vars[page].rightcolumn, 1)
 			form.setFocusedRow(startleft + rowsleft)
 		elseif row < startright + rowsright then
-			vars.rightcolumn[row - startright],vars.rightcolumn[row - startright + 1]  = vars.rightcolumn[row - startright + 1], vars.rightcolumn[row - startright]
+			vars[page].rightcolumn[row - startright],vars[page].rightcolumn[row - startright + 1]  = vars[page].rightcolumn[row - startright + 1], vars[page].rightcolumn[row - startright]
 			form.setFocusedRow(row - 1)
 		elseif row < startnotused then
 			form.setFocusedRow(row - 1)
 		elseif row < startnotused + rowsnotused then
-			table.insert(vars.rightcolumn, vars.notused[row - startnotused + 1])
-			table.remove(vars.notused, row - startnotused + 1)
+			table.insert(vars[page].rightcolumn, vars[page].notused[row - startnotused + 1])
+			table.remove(vars[page].notused, row - startnotused + 1)
 			form.setFocusedRow(startright + rowsright)
 		else
 			form.setFocusedRow(row -1)
@@ -261,26 +261,26 @@ local function moveLine(back)
 		if row < startleft then
 			form.setFocusedRow(row + 1)
 		elseif row < startleft + rowsleft - 1 then
-			vars.leftcolumn[row - startleft + 2],vars.leftcolumn[row - startleft + 1]  = vars.leftcolumn[row - startleft + 1], vars.leftcolumn[row - startleft + 2]
+			vars[page].leftcolumn[row - startleft + 2],vars[page].leftcolumn[row - startleft + 1]  = vars[page].leftcolumn[row - startleft + 1], vars[page].leftcolumn[row - startleft + 2]
 			form.setFocusedRow(row + 1)
 		elseif row == startleft + rowsleft - 1 then
-			table.insert(vars.rightcolumn,1, vars.leftcolumn[rowsleft])
-			table.remove(vars.leftcolumn, rowsleft)
+			table.insert(vars[page].rightcolumn,1, vars[page].leftcolumn[rowsleft])
+			table.remove(vars[page].leftcolumn, rowsleft)
 			form.setFocusedRow(startright - 1)
 		elseif row < startright then
 			form.setFocusedRow(row + 1)
 		elseif row < startright + rowsright - 1 then
-			vars.rightcolumn[row - startright + 2],vars.rightcolumn[row - startright + 1]  = vars.rightcolumn[row - startright + 1], vars.rightcolumn[row - startright + 2]
+			vars[page].rightcolumn[row - startright + 2],vars[page].rightcolumn[row - startright + 1]  = vars[page].rightcolumn[row - startright + 1], vars[page].rightcolumn[row - startright + 2]
 			form.setFocusedRow(row + 1)
 		elseif row == startright + rowsright -1 then
-			table.insert(vars.notused,1, vars.rightcolumn[rowsright])
-			table.remove(vars.rightcolumn, rowsright)
+			table.insert(vars[page].notused,1, vars[page].rightcolumn[rowsright])
+			table.remove(vars[page].rightcolumn, rowsright)
 			form.setFocusedRow(startnotused - 1)
 		elseif row < startnotused then
 			form.setFocusedRow(row + 1)
 		elseif row < startnotused + rowsnotused then
-			table.insert(vars.leftcolumn, 1, vars.notused[row - startnotused + 1])
-			table.remove(vars.notused, row - startnotused + 1)
+			table.insert(vars[page].leftcolumn, 1, vars[page].notused[row - startnotused + 1])
+			table.remove(vars[page].notused, row - startnotused + 1)
 			form.setFocusedRow(startleft)
 		else
 			form.setFocusedRow(row + 1)
@@ -289,84 +289,89 @@ local function moveLine(back)
 	saveOrder()
 end
 
-local function init(varstemp)
+local function init(varstemp, pagetemp)
+	vars = varstemp
+	page = pagetemp
+	vars[page] = {}
+	vars[page].template = system.pLoad("template"..page, 1) == 1 and true or false
+	
 	leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "Status"}
 	rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI"}
-	notused = {"Rx2Values", "RxBValues"}
-	vars = varstemp
-	vars.param = {}
+	notused = {"Speed", "Rx2Values", "RxBValues"}
+	
 	-- first value means the thickness of the seperator
 	-- second value means the distance between the boxes, -10 means the distance is calculated
-	vars.param.TotalCount = {sep = 0, dist = -9, y = 9, sensors = {}} 		-- TotalTime
-	vars.param.FlightTime = {sep = 0, dist = -9, y = 17, sensors = {}}  	-- FlightTime
-	vars.param.EngineTime = {sep = 2, dist = -9, y = 12, sensors = {}}  	-- EngineTime
-	vars.param.Rx1Values = {sep = 2, dist = -9, y = 29, sensors = {}}	-- Rx1 values
-    vars.param.Rx2Values = {sep = 2, dist = -9, y = 29, sensors = {}}	-- Rx2 values
-    vars.param.RxBValues = {sep = 2, dist = -9, y = 29, sensors = {}}	-- RxB values  
-	vars.param.RPM = {sep = 2, dist = -9, y = 37, sensors = {"rotor_rpm_sens"}}    		-- rpm
-	vars.param.Altitude = {sep = 1, dist = -9, y = 17, sensors = {"altitude_sens"}}   		-- altitude
-	vars.param.Vario = {sep = 2, dist = -9, y = 18, sensors = {"vario_sens"}}   		-- vario
-	vars.param.Status = {sep = 1, dist = -9, y = 12, sensors = {"status_sens"}}    	-- Status
-	vars.param.Volt_per_Cell = {sep = 2, dist = -9, y = 27, sensors = {"battery_voltage_sens"}} 			-- battery voltage
-	vars.param.UsedCapacity = {sep = 2, dist = -9, y = 35, sensors = {"used_capacity_sens"}} 	-- used capacity
-	vars.param.Current = {sep = 2, dist = -9, y = 17, sensors = {"motor_current_sens"}}   		-- Current
-	vars.param.Pump_voltage = {sep = 1, dist = -9, y = 18, sensors = {"pump_voltage_sens"}}    -- Pump voltage
-	vars.param.I_BEC = {sep = 1, dist = -9, y = 17, sensors = {"bec_current_sens"}}     		-- IBEC
-	vars.param.Temp = {sep = 1 , dist = -9, y = 17, sensors = {"fet_temp_sens"}}      		-- Temperature
-	vars.param.Throttle = {sep = 1, dist = -9, y = 17, sensors = {"throttle_sens"}}    	-- Throttle
-	vars.param.PWM = {sep = 1, dist = -9, y = 17, sensors = {"pwm_percent_sens"}}      	-- PWM
-	vars.param.C1_and_I1 = {sep = 1, dist = -9, y = 16, sensors = {"UsedCap1_sens", "I1_sens"}}      	-- CI1
-	vars.param.C2_and_I2 = {sep = 1, dist = -9, y = 16, sensors = {"UsedCap2_sens", "I2_sens"}}      	-- CI2
-	vars.param.U1_and_Temp = {sep = 1, dist = -9, y = 16, sensors = {"U1_sens", "Temp_sens" }}    -- U1 and Temp
-	vars.param.U2_and_OI = {sep = 1, dist = -9, y = 12, sensors = {"U2_sens", "OverI_sens"}}      -- U2 and OverI
+	vars[page].TotalCount = {sep = 0, dist = -9, y = 9, sensors = {}} 		-- TotalTime
+	vars[page].FlightTime = {sep = 0, dist = -9, y = 17, sensors = {}}  	-- FlightTime
+	vars[page].EngineTime = {sep = 2, dist = -9, y = 12, sensors = {}}  	-- EngineTime
+	vars[page].Rx1Values = {sep = 2, dist = -9, y = 29, sensors = {}}	-- Rx1 values
+    vars[page].Rx2Values = {sep = 2, dist = -9, y = 29, sensors = {}}	-- Rx2 values
+    vars[page].RxBValues = {sep = 2, dist = -9, y = 29, sensors = {}}	-- RxB values  
+	vars[page].RPM = {sep = 2, dist = -9, y = 37, sensors = {"rotor_rpm_sens"}}    		-- rpm
+	vars[page].Altitude = {sep = 1, dist = -9, y = 17, sensors = {"altitude_sens"}}   		-- altitude
+	vars[page].Speed = {sep = 1, dist = -9, y = 17, sensors = {"speed_sens"}}   		-- speed
+	vars[page].Vario = {sep = 2, dist = -9, y = 18, sensors = {"vario_sens"}}   		-- vario
+	vars[page].Status = {sep = 1, dist = -9, y = 12, sensors = {"status_sens"}}    	-- Status
+	vars[page].Volt_per_Cell = {sep = 2, dist = -9, y = 27, sensors = {"battery_voltage_sens"}} 			-- battery voltage
+	vars[page].UsedCapacity = {sep = 2, dist = -9, y = 35, sensors = {"used_capacity_sens"}} 	-- used capacity
+	vars[page].Current = {sep = 2, dist = -9, y = 17, sensors = {"motor_current_sens"}}   		-- Current
+	vars[page].Pump_voltage = {sep = 1, dist = -9, y = 18, sensors = {"pump_voltage_sens"}}    -- Pump voltage
+	vars[page].I_BEC = {sep = 1, dist = -9, y = 17, sensors = {"bec_current_sens"}}     		-- IBEC
+	vars[page].Temp = {sep = 1 , dist = -9, y = 17, sensors = {"fet_temp_sens"}}      		-- Temperature
+	vars[page].Throttle = {sep = 1, dist = -9, y = 17, sensors = {"throttle_sens"}}    	-- Throttle
+	vars[page].PWM = {sep = 1, dist = -9, y = 17, sensors = {"pwm_percent_sens"}}      	-- PWM
+	vars[page].C1_and_I1 = {sep = 1, dist = -9, y = 16, sensors = {"UsedCap1_sens", "I1_sens"}}      	-- CI1
+	vars[page].C2_and_I2 = {sep = 1, dist = -9, y = 16, sensors = {"UsedCap2_sens", "I2_sens"}}      	-- CI2
+	vars[page].U1_and_Temp = {sep = 1, dist = -9, y = 16, sensors = {"U1_sens", "Temp_sens" }}    -- U1 and Temp
+	vars[page].U2_and_OI = {sep = 1, dist = -9, y = 12, sensors = {"U2_sens", "OverI_sens"}}      -- U2 and OverI
 	
 	loadOrder()
 	
-	vars.leftdrawcol, vars.leftstart, vars.ycalcLeft = calcDistance(vars.leftcolumn)
-	vars.rightdrawcol, vars.rightstart, vars.ycalcRight = calcDistance(vars.rightcolumn)
-	calcDistance(vars.notused)
+	vars[page].leftdrawcol, vars[page].leftstart, vars[page].ycalcLeft = calcDistance(vars[page].leftcolumn)
+	vars[page].rightdrawcol, vars[page].rightstart, vars[page].ycalcRight = calcDistance(vars[page].rightcolumn)
+	calcDistance(vars[page].notused)
 	
 	return vars
 end
 
-local function setup(varstemp)
+local function setup(varstemp, pagetemp)
 	local i, j
 	local value
-	local template
+	local template = {}
 	
-	vars = varstemp
-	init(vars)
-  	form.setTitle(vars.trans.Layout)
+	init(varstemp, pagetemp)
+	
+  	form.setTitle(vars.trans.Layout.." "..vars.trans.Page.." "..page)
 	
 	form.addSpacer(320,5)
 	
 	form.addRow(2)
 	form.addLabel({label = "Template:", width = 270})
-	template = form.addCheckbox(vars.template, 
+	template[page] = form.addCheckbox(vars[page].template, 
 				function(value)
-					vars.template = not value
-					system.pSave("template", not value and 1 or 0)
-					form.setValue(template, not value)	
+					vars[page].template = not value
+					system.pSave("template"..page, not value and 1 or 0)
+					form.setValue(template[page], not value)	
 				end)
 
 	form.addSpacer(320,10)
 	form.addRow(2)
-	form.addLabel({label = (vars.trans.Leftrow.." ("..vars.ycalcLeft..")"), font = FONT_BOLD, alignRight = false, enabled = true})
+	form.addLabel({label = (vars.trans.Leftrow.." ("..vars[page].ycalcLeft..")"), font = FONT_BOLD, alignRight = false, enabled = true})
 	form.addLabel({label = "Sep.:   Dist.:", font = FONT_BOLD, alignRight = true, enabled = true})
 
 			
-	for i,j in ipairs(vars.leftcolumn) do	
-		if vars.param[j].visible then
+	for i,j in ipairs(vars[page].leftcolumn) do	
+		if vars[page][j].visible then
 			form.addRow(3)
-			form.addLabel({label = j.." ("..vars.param[j].y..")",font = FONT_NORMAL, width = 210})
-			form.addIntbox(vars.param[j].sep, -1, 5, 2, 0, 1,
+			form.addLabel({label = j.." ("..vars[page][j].y..")",font = FONT_NORMAL, width = 210})
+			form.addIntbox(vars[page][j].sep, -1, 5, 2, 0, 1,
 							function (value)
-								vars.param[j].sep = value
+								vars[page][j].sep = value
 								saveOrder()
 							end, {font = fontLabel, width = 50})
-			form.addIntbox(vars.param[j].dist, -9, 100, -9, 0, 1,
+			form.addIntbox(vars[page][j].dist, -9, 100, -9, 0, 1,
 							function (value)
-								vars.param[j].dist = value
+								vars[page][j].dist = value
 								saveOrder()
 							end, {font = fontLabel, width = 60})
 		else 
@@ -379,22 +384,22 @@ local function setup(varstemp)
 	form.addRow(1)
 	form.addLabel({label = "----------------------------------------------------------"})
 	form.addRow(2)
-	form.addLabel({label = (vars.trans.Rightrow.." ("..vars.ycalcRight..")"), font = FONT_BOLD, alignRight = false, enabled = true})
+	form.addLabel({label = (vars.trans.Rightrow.." ("..vars[page].ycalcRight..")"), font = FONT_BOLD, alignRight = false, enabled = true})
 	form.addLabel({label = "Sep.:   Dist.:", font = FONT_BOLD, alignRight = true, enabled = true})
 
-	for i,j in ipairs(vars.rightcolumn) do
-		if vars.param[j].visible then
+	for i,j in ipairs(vars[page].rightcolumn) do
+		if vars[page][j].visible then
 			form.addRow(3)
-			form.addLabel({label = j.." ("..vars.param[j].y..")",font = FONT_NORMAL, width = 210})
+			form.addLabel({label = j.." ("..vars[page][j].y..")",font = FONT_NORMAL, width = 210})
 			
-			form.addIntbox(vars.param[j].sep, -1, 5, 2, 0, 1,
+			form.addIntbox(vars[page][j].sep, -1, 5, 2, 0, 1,
 							function (value)
-								vars.param[j].sep = value
+								vars[page][j].sep = value
 								saveOrder()
 							end, {width = 50})
-			form.addIntbox(vars.param[j].dist, -9, 100, -9, 0, 1,
+			form.addIntbox(vars[page][j].dist, -9, 100, -9, 0, 1,
 							function (value)
-								vars.param[j].dist = value
+								vars[page][j].dist = value
 								saveOrder()
 							end, {width = 60})
 		else 
@@ -410,19 +415,19 @@ local function setup(varstemp)
 	form.addLabel({label = vars.trans.notused, font = FONT_BOLD, alignRight = false, enabled = true})
 	form.addLabel({label = "Sep.:   Dist.:", font = FONT_BOLD, alignRight = true, enabled = true})
 	
-	for i,j in ipairs(vars.notused) do
-		if vars.param[j].visible then
+	for i,j in ipairs(vars[page].notused) do
+		if vars[page][j].visible then
 			form.addRow(3)
-			form.addLabel({label = j.." ("..vars.param[j].y..")",font = FONT_NORMAL, width = 210})
+			form.addLabel({label = j.." ("..vars[page][j].y..")",font = FONT_NORMAL, width = 210})
 			
-			form.addIntbox(vars.param[j].sep, -1, 5, 2, 0, 1,
+			form.addIntbox(vars[page][j].sep, -1, 5, 2, 0, 1,
 							function (value)
-								vars.param[j].sep = value
+								vars[page][j].sep = value
 								saveOrder()
 							end, {width = 50})
-			form.addIntbox(vars.param[j].dist, -9, 100, -9, 0, 1,
+			form.addIntbox(vars[page][j].dist, -9, 100, -9, 0, 1,
 							function (value)
-								vars.param[j].dist = value
+								vars[page][j].dist = value
 								saveOrder()
 							end, {width = 60})
 		else 
