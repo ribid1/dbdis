@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **2.3**
+Latest Version: **2.4**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -112,5 +112,7 @@ V2.1 Permanent Value Alarm added
 V2.2 Possibility for a surrounding edge of the value boxes added  
 V2.3 The high in pixels of each box is displayed in the layout form
 - Not assigned boxes are shown in small letters
-- The left space in pixel is shown at the top of the right and the left row
+- The left space in pixel is shown at the top of the right and the left row  
+
+V2.4 Second page and speed box added  
 
