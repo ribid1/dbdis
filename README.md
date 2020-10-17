@@ -47,6 +47,7 @@ http://swiss-aerodesign.com/calculated-capacity.html
 ![QC650](https://github.com/ribid1/dbdis/blob/master/dbdis-img/QC650.jpg)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator.jpg)
 ![Polikarpov](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Polikarpov.png)
+![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator2.png)
 
 ### Installation:
 * Copy the dbdis.lua or the dbdis.lc and the folder dbdis in the folder: \Apps
