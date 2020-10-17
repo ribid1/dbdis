@@ -911,17 +911,17 @@ local function showDisplay(page)
 	yStart = vars[page].leftstart
 	xStart = xli
 	for i,j in ipairs(vars[page].leftdrawcol) do 
-		if vars[page][j].sep == -1 then
+		if vars[page].cd[j].sep == -1 then
 			yStart = yStart + yborder / 2
 			drawfunc[j]()
-			lcd.drawRectangle(0, yStart - yborder / 2, 130, vars[page][j].y + yborder, 4)
-			yStart = yStart + vars[page][j].y + yborder / 2 + vars[page][j].distdraw
+			lcd.drawRectangle(0, yStart - yborder / 2, 130, vars[page].cd[j].y + yborder, 4)
+			yStart = yStart + vars[page].cd[j].y + yborder / 2 + vars[page].cd[j].distdraw
 		else
 			drawfunc[j]()
-			yStart = yStart + vars[page][j].y + vars[page][j].distdraw
-			if vars[page][j].sepdraw > 0 then 
-				lcd.drawFilledRectangle(xli, yStart , lengthSep, vars[page][j].sep)
-				yStart = yStart + vars[page][j].sep + vars[page][j].distdraw
+			yStart = yStart + vars[page].cd[j].y + vars[page].cd[j].distdraw
+			if vars[page].cd[j].sepdraw > 0 then 
+				lcd.drawFilledRectangle(xli, yStart , lengthSep, vars[page].cd[j].sep)
+				yStart = yStart + vars[page].cd[j].sep + vars[page].cd[j].distdraw
 			end
 		end
 	end
@@ -931,17 +931,17 @@ local function showDisplay(page)
 	yStart = vars[page].rightstart
 	xStart = xre
 	for i,j in ipairs(vars[page].rightdrawcol) do 
-		if vars[page][j].sep == -1 then
+		if vars[page].cd[j].sep == -1 then
 			yStart = yStart + yborder / 2
 			drawfunc[j]()
-			lcd.drawRectangle(190, yStart - yborder / 2, 128, vars[page][j].y + yborder, 4)
-			yStart = yStart + vars[page][j].y + yborder / 2 + vars[page][j].distdraw
+			lcd.drawRectangle(190, yStart - yborder / 2, 128, vars[page].cd[j].y + yborder, 4)
+			yStart = yStart + vars[page].cd[j].y + yborder / 2 + vars[page].cd[j].distdraw
 		else
 			drawfunc[j]()
-			yStart = yStart + vars[page][j].y + vars[page][j].distdraw
-			if vars[page][j].sepdraw > 0 then 
-				lcd.drawFilledRectangle(xre, yStart , lengthSep, vars[page][j].sep)
-				yStart = yStart + vars[page][j].sep + vars[page][j].distdraw
+			yStart = yStart + vars[page].cd[j].y + vars[page].cd[j].distdraw
+			if vars[page].cd[j].sepdraw > 0 then 
+				lcd.drawFilledRectangle(xre, yStart , lengthSep, vars[page].cd[j].sep)
+				yStart = yStart + vars[page].cd[j].sep + vars[page].cd[j].distdraw
 			end
 		end
 	end

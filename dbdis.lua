@@ -44,6 +44,7 @@
 		- Not assigned boxes are shown in small letters
 		- The left space in pixel is shown at the top of the right and the left row
 	V2.4 Second page and speed box added	
+	V2.6 Changed the format of the config file to .jsn 
 
 --]]
 
@@ -84,8 +85,8 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "2.4"
-local owner = " ", " "
+local Version = "2.6"
+local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
 local goregisterTelemetry = nil
@@ -93,6 +94,7 @@ local Form, Form2, Screen
 local trans
 local senslbls = {}
 local formID
+
 
 -- Telemetry Window
 local function Window1(width, height)
@@ -143,7 +145,7 @@ local function setupForm(ID)
 		Form = require (appName.."/Form")
 		setupvars = Form.setup(setupvars, Version, senslbls) -- return modified data from user
 		
-	elseif formID == 2 or formID == 3 then 
+	else 
 		-- if not Screen then Screen = require (appName.."/Screen") end
 		-- setupvars = Screen.init(setupvars)
 		Screen = nil						
@@ -151,9 +153,14 @@ local function setupForm(ID)
 		Form = nil
 		unrequire(appName.."/Form")
 		Form2 = require (appName.."/Form2")
-		setupvars = Form2.setup(setupvars, formID - 1)
-		form.setButton(4, ":up", ENABLED)
-		form.setButton(5, ":down", ENABLED)
+		if formID == 2 or formID == 3 then
+			setupvars = Form2.setup(setupvars, formID - 1)
+			form.setButton(4, ":up", ENABLED)
+			form.setButton(5, ":down", ENABLED)
+		else
+			setupvars = Form2.setupBat(setupvars)
+			form.setButton(5, ":add", ENABLED)
+		end
 	end
 
 
@@ -172,7 +179,11 @@ local function keyForm(key)
 		Form2.moveLine(true)
 		form.reinit(formID)
 	elseif (key == KEY_4 and formID ~= 4) then
-		form.reinit(4)	
+		form.reinit(4)		
+	elseif key == KEY_5 and formID == 4 then
+		setupvars.addAkku = 1
+		form.preventDefault()
+		form.reinit(formID)	
 	elseif key == KEY_5 and (formID == 2 or formID == 3) then
 		Form2.moveLine()
 		form.preventDefault()
@@ -239,6 +250,7 @@ local function init(code1)
 	local sensCat
 	local senslbl
 	local catName
+	setupvars.addAkku = 0
 	owner = system.getUserName()
 	
 	senslbls.cat = {"eDrive", "fuelDrive", "Rx", "mixed"}
