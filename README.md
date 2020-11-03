@@ -116,5 +116,8 @@ V2.3 The high in pixels of each box is displayed in the layout form
 - The left space in pixel is shown at the top of the right and the left row  
 
 V2.4 Second page and speed box added  
-V2.6 Changed the format of the config file to .jsn
-
+V2.6 Changed the format of the config file to .jsn  
+V3.0 Added an input Window to config batteries  
+  - Added Rfid Sensor Values  
+  - After every flight in the dbsis_Log.txt an log entry is made with important datas
+  - Added  dbdis_Log.xlsm with the Makro "Import_Data" as an example how you can Import very easy the log entries from the dbsis_Log.txt to Excel  
