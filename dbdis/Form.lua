@@ -173,22 +173,40 @@ local function setup(vars, Version, senslbls)
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label2,font=FONT_BOLD})
 	
-	if not Calca_dispFuel then
+	--if not Calca_dispFuel then   
+		-- form.addRow(2)
+		-- form.addLabel({label=vars.trans.capacitymAh, width=210})
+		-- form.addIntbox(vars.capacity1, 0, 32767, 0, 0, 10,
+							-- function (value)
+								-- vars.capacity1 = value
+								-- system.pSave("capacity1", vars.capacity1)
+							-- end, {label=" mAh"} )
+		
+		-- form.addRow(2)
+		-- form.addLabel({label=vars.trans.capacity2mAh, width=210})
+		-- form.addIntbox(vars.capacity2, 0, 32767, 0, 0, 10,
+							-- function (value)
+								-- vars.capacity2 = value
+								-- system.pSave("capacity2", vars.capacity2)
+							-- end, {label=" mAh"} )
+							
 		form.addRow(2)
-		form.addLabel({label=vars.trans.capacitymAh, width=210})
-		form.addIntbox(vars.capacity1, 0, 32767, 0, 0, 10,
+		form.addLabel({label="Akku 1 ID:", width=210})
+		form.addIntbox(vars.Akku1ID, 0, 999, 0, 0, 1,
 							function (value)
-								vars.capacity1 = value
-								system.pSave("capacity1", vars.capacity1)
-							end, {label=" mAh"} )
+								vars.Akku1ID = value
+								system.pSave("Akku1ID", vars.Akku1ID)
+							end)
 		
 		form.addRow(2)
-		form.addLabel({label=vars.trans.capacity2mAh, width=210})
-		form.addIntbox(vars.capacity2, 0, 32767, 0, 0, 10,
+		form.addLabel({label="Akku 2 ID:", width=210})
+		form.addIntbox(vars.Akku2ID, 0, 999, 0, 0, 1,
 							function (value)
-								vars.capacity2 = value
-								system.pSave("capacity2", vars.capacity2)
-							end, {label=" mAh"} )
+								vars.Akku2ID = value
+								system.pSave("Akku2ID", vars.Akku2ID)
+							end)
+							
+							
 							
 		form.addRow(2)
 		form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
@@ -197,16 +215,16 @@ local function setup(vars, Version, senslbls)
 				  vars.akkuSw = value
 				  system.pSave("akkuSw", vars.akkuSw)
 							end)
-	end
+	--end
 						
 
-	form.addRow(2)
-	form.addLabel({label=vars.trans.cellcnt, width=210})
-	form.addIntbox(vars.cell_count, 1, 14, 1, 0, 1,
-						function (value)
-							vars.cell_count = value
-							system.pSave("cell_count", vars.cell_count)
-						end, {label=" S"} )
+	-- form.addRow(2)
+	-- form.addLabel({label=vars.trans.cellcnt, width=210})
+	-- form.addIntbox(vars.cell_count, 1, 14, 1, 0, 1,
+						-- function (value)
+							-- vars.cell_count = value
+							-- system.pSave("cell_count", vars.cell_count)
+						-- end, {label=" S"} )
 					
 	if not Calca_dispGas then
 		form.addRow(2)

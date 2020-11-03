@@ -2,7 +2,26 @@
 	----------------------------------------------------------------------------
 	App using Sensor Data to display in a full screen window
 	----------------------------------------------------------------------------
+	
 	MIT License
+
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so, subject to the following conditions:
+
+	The above copyright notice and this permission notice shall be included in all
+	copies or substantial portions of the Software.
+
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	SOFTWARE.
    
 	Hiermit wird unentgeltlich jeder Person, die eine Kopie der Software und der
 	zugehörigen Dokumentationen (die "Software") erhält, die Erlaubnis erteilt,
@@ -20,10 +39,10 @@
 	SONSTIGE ANSPRÜCHE HAFTBAR ZU MACHEN, OB INFOLGE DER ERFÜLLUNG EINES VERTRAGES,
 	EINES DELIKTES ODER ANDERS IM ZUSAMMENHANG MIT DER SOFTWARE ODER SONSTIGER
 	VERWENDUNG DER SOFTWARE ENTSTANDEN. 
-	----------------------------------------------------------------------------
+	
 
-
-	copied from nichtgedacht Version History: V1.1
+	copied from nichtgedacht	Version History: V1.1
+	
 	V1.0 initial release
 	V1.1 Turbine status and turbine telemetry added
 	V1.2 improvement of the timer function:
@@ -45,6 +64,7 @@
 		- The left space in pixel is shown at the top of the right and the left row
 	V2.4 Second page and speed box added	
 	V2.6 Changed the format of the config file to .jsn 
+	V2.7
 
 --]]
 
@@ -85,7 +105,7 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "2.6"
+local Version = "3.0"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -193,7 +213,6 @@ end
 
 -- switch to telemetry context
 local function closeForm()
-  
 	Form = nil
 	unrequire(appName.."/Form")
 	unrequire(appName.."/Form2")
@@ -217,9 +236,14 @@ local function loop()
   
   -- register telemetry display again after form was closed 
 	if ( goregisterTelemetry and system.getTimeCounter() > goregisterTelemetry ) then
-    
+		Form2 = require (appName.."/Form2")
+		setupvars = Form2.init(setupvars, 1)
+		setupvars = Form2.init(setupvars, 2)
+		setupvars = Form2.initBat(setupvars)
+		Form2 = nil
+		unrequire(appName.."/Form2")
 		Screen = require(appName.."/Screen")
-		Screen.init(setupvars)
+		Screen.setvars(setupvars)
 
     
 		system.registerTelemetry(1, Title1, 4, Window1)
@@ -259,8 +283,8 @@ local function init(code1)
 		table.insert(senslbls.catName, trans[catName])
 	end
 	
-	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens"}
-	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens"}
+	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens", "batCap_sens", "batCells_sens", "batC_sens"}
+	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens", "status2_sens"}
 	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "Temp_sens", "OverI_sens"}
 	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "speed_sens", "vario_sens"}
     	
@@ -293,6 +317,8 @@ local function init(code1)
 	setupvars.todayCount = system.pLoad("todayCount", 0)
 	setupvars.timeToCount = system.pLoad("timeToCount", 120)
 	setupvars.lastDay = system.pLoad("lastDay", 0)
+	setupvars.Akku1ID = system.pLoad("Akku1ID", 0)
+	setupvars.Akku2ID = system.pLoad("Akku2ID", 0)
 	
 	today = system.getDateTime()	
 	intToday = math.floor(system.getTime() / 86400)
@@ -322,11 +348,12 @@ local function init(code1)
 	Form2 = require (appName.."/Form2")
 	setupvars = Form2.init(setupvars, 1)
 	setupvars = Form2.init(setupvars, 2)
+	setupvars = Form2.initBat(setupvars)
 	Form2 = nil
 	unrequire(appName.."/Form2")
 	
 	Screen = require (appName.."/Screen")
-	Screen.init(setupvars)
+	setupvars = Screen.init(setupvars)
 
 	-- debug, loaded modules
 	--local i, p

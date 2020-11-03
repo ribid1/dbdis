@@ -12,7 +12,9 @@ local function calcDistance(column)
 	local drawcolumn = {}
 	local ycalc = 0
 	local yborder = 6
+	local iRaender = 2
 	
+	-- was wird angezeigt, was nicht
 	for i,j in ipairs(column) do
 		paired = false
 		if #vars[page].cd[j].sensors > 0 then 
@@ -31,8 +33,8 @@ local function calcDistance(column)
 			end
 		end
 		if j == "UsedCapacity" and Calca_dispFuel then paired = true end
-		if j == "Status" and Global_TurbineState then paired = true end
-
+		if j == "Status1" and Global_TurbineState then paired = true end
+		if j == "Status2" and Global_TurbineState2 then paired = true end
 		if paired then
 			vars[page].cd[j].visible = true
 			table.insert(drawcolumn, j)
@@ -73,11 +75,15 @@ local function calcDistance(column)
 				end
 			end
 		else
+			if vars[page].cd[j].dist > -9 then
+				totalhight = totalhight + vars[page].cd[j].dist
+				iRaender = 1
+			end
 			vars[page].cd[j].sepdraw = 0
 		end
 	end
-	
-	ycalc = math.floor((160 - totalhight) / (icalc + 2))
+
+	ycalc = math.floor((160 - totalhight) / (icalc + iRaender))
 	
 	for i,j in ipairs(drawcolumn) do
 		if vars[page].cd[j].dist == -9 then 
@@ -86,7 +92,7 @@ local function calcDistance(column)
 	end
 	
 	--print(ycalc)
-	return drawcolumn, math.floor((160 - totalhight - icalc * ycalc) / 2), ycalc
+	return drawcolumn, math.floor((160 - totalhight - icalc * ycalc) / iRaender), ycalc
 	
 end
 local function save_txt()
@@ -370,7 +376,7 @@ local function init(varstemp, pagetemp)
 	vars.template[page] = system.pLoad("template"..page, 1) == 1 and true or false
 	
 	leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "Status"}
-	rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI"}
+	rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI", "Status2"}
 	notused = {"Speed", "Rx2Values", "RxBValues"}
 	
 	-- first value means the thickness of the seperator
@@ -385,7 +391,8 @@ local function init(varstemp, pagetemp)
 	vars[page].cd.Altitude = {sep = 1, dist = -9, y = 17, sensors = {"altitude_sens"}}   		-- altitude
 	vars[page].cd.Speed = {sep = 1, dist = -9, y = 17, sensors = {"speed_sens"}}   		-- speed
 	vars[page].cd.Vario = {sep = 2, dist = -9, y = 18, sensors = {"vario_sens"}}   		-- vario
-	vars[page].cd.Status = {sep = 1, dist = -9, y = 12, sensors = {"status_sens"}}    	-- Status
+	vars[page].cd.Status = {sep = 1, dist = -9, y = 12, sensors = {"status_sens"}}    	-- Status1
+	vars[page].cd.Status2 = {sep = 1, dist = -9, y = 12, sensors = {"status2_sens"}}    	-- Status1
 	vars[page].cd.Volt_per_Cell = {sep = 2, dist = -9, y = 27, sensors = {"battery_voltage_sens"}} 			-- battery voltage
 	vars[page].cd.UsedCapacity = {sep = 2, dist = -9, y = 35, sensors = {"used_capacity_sens"}} 	-- used capacity
 	vars[page].cd.Current = {sep = 2, dist = -9, y = 17, sensors = {"motor_current_sens"}}   		-- Current
@@ -444,7 +451,7 @@ local function setup(varstemp, pagetemp)
 								vars[page].cd[j].sep = value
 								saveOrder()
 							end, {font = fontLabel, width = 50})
-			form.addIntbox(vars[page].cd[j].dist, -9, 100, -9, 0, 1,
+			form.addIntbox(vars[page].cd[j].dist, -9, 160, -9, 0, 1,
 							function (value)
 								vars[page].cd[j].dist = value
 								saveOrder()
@@ -472,7 +479,7 @@ local function setup(varstemp, pagetemp)
 								vars[page].cd[j].sep = value
 								saveOrder()
 							end, {width = 50})
-			form.addIntbox(vars[page].cd[j].dist, -9, 100, -9, 0, 1,
+			form.addIntbox(vars[page].cd[j].dist, -9, 160, -9, 0, 1,
 							function (value)
 								vars[page].cd[j].dist = value
 								saveOrder()
@@ -522,6 +529,12 @@ local function setup(varstemp, pagetemp)
 end
 
 local function saveAkkus()
+	local i, j
+	table.sort(vars.Akkus, function (i,j) return i.ID < j.ID end)
+	vars.AkkusID ={}
+	for i,j in ipairs(vars.Akkus) do
+		vars.AkkusID[math.floor(j.ID)]= i
+	end
 	local obj = json.encode(vars.Akkus)
 	local file = io.open("Apps/"..vars.appName.."/Akkus.jsn", "w+")
 	if file then
@@ -536,6 +549,7 @@ local function initBat(varstemp)
 	local j = 1
 	vars = varstemp
 	vars.Akkus = {}
+	vars.AkkusID = {}
 	local file = io.readall("Apps/"..vars.appName.."/Akkus.jsn")
 	if file then
 		local obj = json.decode(file)
@@ -556,56 +570,112 @@ local function initBat(varstemp)
 		end
 	end
 	collectgarbage()
+	return vars
 end
+
+
 
 local function setupBat(varstemp)
 	local i, j
 	local IDmax
+	local strValue
 	initBat(varstemp)
 	
 	form.setTitle(vars.trans.Layout.." Akku")
-	form.setTitle("ID             Name           Cycl.     Ah")
-
-	for i = 1, (#vars.Akkus + vars.addAkku) do
+	form.setTitle("ID       Name         S      mAh     C")
+	form.addRow(1)
+	form.addLabel({label =vars.trans.headerAkku, font = FONT_MINI, enabled=false})
+	
+	--form.addLabel({label=vars.trans.capacitymAh, width=210})
+	--form.addLabel({label=vars.trans.cellcnt, width=210})
+	if vars.addAkku == 1 then
 		vars.addAkku = 0
-		if not vars.Akkus[i] then
-			IDmax = 0
-			for j = 1, i-1 do
-				if vars.Akkus[j].ID > IDmax then IDmax = vars.Akkus[j].ID end
-			end
-			vars.Akkus[i] = {} 
-			vars.Akkus[i].ID = IDmax + 1
-			vars.Akkus[i].Name = ""
-			vars.Akkus[i].Cycl = 0
-			vars.Akkus[i].mA = 0
-			saveAkkus()
+		IDmax = 0
+		for i in ipairs(vars.Akkus)  do
+			if vars.Akkus[i].ID > IDmax then IDmax = vars.Akkus[i].ID end
 		end
-		form.addRow(4)
-		form.addIntbox(vars.Akkus[i].ID, -1, 999, 888, 0, 1,
+		IDmax = IDmax + 1
+		i = #vars.Akkus + 1
+		vars.Akkus[i] = {} 
+		vars.Akkus[i].ID = IDmax
+		vars.Akkus[i].batC = 0
+		vars.Akkus[i].Name = ""
+		vars.Akkus[i].Capacity = 0
+		vars.Akkus[i].iCells = 1
+		vars.Akkus[i].Cycl = 0
+		vars.Akkus[i].Ah = 0
+		vars.Akkus[i].lastVoltage = 0
+		vars.Akkus[i].usedCapacity = 0
+		saveAkkus()
+	end
+	
+	
+	-- if #vars.Akkus > 0 then 
+		-- form.addSpacer(320,5)
+		-- --form.addRow(1)
+		-- --form.addLabel({label = "----------------------------------------------------------", enabled = false})
+	-- end
+	
+	for i, j in ipairs(vars.Akkus) do
+		form.addSpacer(320,5)	
+		form.addRow(5)
+		form.addIntbox(j.ID, -1, 999, -1, 0, 1,
 								function (value)
-									vars.Akkus[i].ID = value
+									j.ID = value		
 									saveAkkus()
 								end, {width = 52})
-		form.addTextbox(vars.Akkus[i].Name, 20,
+		form.addTextbox(j.Name, 7,
 								function (value)
-									vars.Akkus[i].Name = value
+									j.Name = value
 									saveAkkus()
-								end, {width = 140})						
-		form.addIntbox(vars.Akkus[i].Cycl, 0, 9999, 0, 0, 1,
+								end, {width = 105})	
+								
+		form.addIntbox(j.iCells, 1, 14, 1, 0, 1,
 								function (value)
-									vars.Akkus[i].Cycl = value
+									j.iCells = value
 									saveAkkus()
-								end, {width = 60})
-		form.addIntbox(vars.Akkus[i].mA, 0, 9999, 0, 0, 1,
+								end, {width = 50} )
+
+		form.addIntbox(j.Capacity, 0, 32767, 0, 0, 10,
 								function (value)
-									vars.Akkus[i].mA = value
+									j.Capacity = value
 									saveAkkus()
-								end, {width = 60})
+								end, {width = 60} )
+		form.addIntbox(j.batC, 0, 90, 0, 0, 5,
+								function (value)
+									j.batC = value
+									saveAkkus()
+								end, {width = 50})
+
+								
+		form.addRow(3)			
+	
+		form.addIntbox(j.Cycl, 0, 9999, 0, 0, 1,
+								function (value)
+									j.Cycl = value
+									saveAkkus()
+								end, {width = 105, label = vars.trans.cycles})	
+		form.addIntbox(math.floor(j.usedCapacity), 0, 9999, 0, 0, 10,
+										function (value)
+											j.usedCapacity = value
+											saveAkkus()
+										end, {label=" mAh", width = 102})					
+		form.addIntbox(math.floor(j.Ah), 0, 9999, 0, 0, 1,
+								function (value)
+									j.Ah = value
+									saveAkkus()
+								end, {label=" Ah", width = 115})
+				
 	end
+	form.addSpacer(320,5)
+	form.addRow(1)
+	form.addLabel({label =vars.trans.delete_Akku, font = FONT_MINI, alignRight=true, enabled=false})
 	
 	collectgarbage()
 	return (vars)
 end
+
+
 
 
 
