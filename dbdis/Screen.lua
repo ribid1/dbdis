@@ -927,7 +927,7 @@ local function writeLog()
 	local dtTime = string.format("%d:%02d", dt.hour, dt.min)
 	local usedFuel = math.floor((100 - remaining_fuel_percent) * vars.tank_volume / 100)
 	
-    local logLine = string.format("%s,%s,%15s,% 3d,%s,%s,%s,% 3d,% 6d,% 9d,%  .2f,% 5d", dtDate, dtTime, vars.model, vars.totalCount, dttotalFlighttime, dtflighttime, dtengineTime, drawVal.batID_sens, battDspCount, mahCapaLog, minvperc, usedFuel)
+    local logLine = string.format("%s;%s;%15s;% 3d;%s;%s;%s;% 3d;% 6d;% 9d;%  .2f;% 5d", dtDate, dtTime, vars.model, vars.totalCount, dttotalFlighttime, dtflighttime, dtengineTime, drawVal.batID_sens, battDspCount, mahCapaLog, minvperc, usedFuel)
 	local fn = vars.appName.."_Log.txt"          --"Apps/"..vars.appName.."/Log_01.txt"
 	local header = true
 	local fwriteLog = io.open(fn,"r")

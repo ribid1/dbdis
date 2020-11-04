@@ -617,14 +617,14 @@ local function setupBat(varstemp)
 	-- end
 	
 	for i, j in ipairs(vars.Akkus) do
-		form.addSpacer(320,5)	
+		form.addSpacer(320,4)	
 		form.addRow(5)
 		form.addIntbox(j.ID, -1, 999, -1, 0, 1,
 								function (value)
 									j.ID = value		
 									saveAkkus()
-								end, {width = 52})
-		form.addTextbox(j.Name, 7,
+								end, {width = 52, font = FONT_BOLD})
+		form.addTextbox(j.Name, 9,
 								function (value)
 									j.Name = value
 									saveAkkus()
@@ -646,7 +646,6 @@ local function setupBat(varstemp)
 									j.batC = value
 									saveAkkus()
 								end, {width = 50})
-
 								
 		form.addRow(3)			
 	
@@ -654,17 +653,17 @@ local function setupBat(varstemp)
 								function (value)
 									j.Cycl = value
 									saveAkkus()
-								end, {width = 105, label = vars.trans.cycles})	
+								end, {width = 95, label = vars.trans.cycles, font = FONT_MINI})	
 		form.addIntbox(math.floor(j.usedCapacity), 0, 9999, 0, 0, 10,
 										function (value)
 											j.usedCapacity = value
 											saveAkkus()
-										end, {label=" mAh", width = 102})					
+										end, {label=" mAh", width = 112, font = FONT_MINI})					
 		form.addIntbox(math.floor(j.Ah), 0, 9999, 0, 0, 1,
 								function (value)
 									j.Ah = value
 									saveAkkus()
-								end, {label=" Ah", width = 115})
+								end, {label=" Ah", width = 115, font = FONT_MINI})
 				
 	end
 	form.addSpacer(320,5)
