@@ -80,12 +80,21 @@ Setup Time Switches:
 Setup History:  
 ![Setup History](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20History.png)
 
+### Layout:
 Design the Layout (use the arrow keys to change the order):  
 - Sep.: determine the thickness of the seperator line (0 = no seperator, -1 = value is edged)  
 
 ![Layout 1](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_1.png)
 ![Layout 2](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_2.png)
 ![Layout 3](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_3.png)
+
+### Config Batteries:  
+You have two possibilities to add a batterie:  
+- If you have a Rfid Sensor and the battery has a Rfid Tag, you don't need anything to do. The app will recognize the battery and will store every use of the battery.  
+- The other way is to select the "+" on the batteries page and a new entry will be made.
+On the first line you can config your battery, and on the second line you could adjust the values if you want.  
+![Config Batteries](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Config_Batteries.png)
+
 
 ### History:  
   
