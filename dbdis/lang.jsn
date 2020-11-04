@@ -83,7 +83,7 @@
 		"explSep":"If Sep. = -1 then the value is edged",
 		"logWrite":"Logfile written!",
 		"cycles":" Cycles",
-		"header":"      Date, Time,           Name,  i,TotalTime,Flighttime,Enginetime, ID,Cycles, used Cap, minV, Fuel\n",
+		"header":"      Date; Time;           Name;  i;TotalTime;Flighttime;Enginetime; ID;Cycles; used Cap; minV; Fuel\n",
 		"headerAkku":"     cycles                 last consumtion       consumtion total",
 		"delete_Akku":"ID = -1 deletes that Battery"
 },
@@ -169,7 +169,7 @@
 		"explSep":"Wenn Sep. = -1 dann wird das Feld umrandet",
 		"logWrite":"Logeintrag erstellt!",
 		"cycles":" Zyklen",
-		"header":"     Datum, Zeit,           Name,  i, Ges.zeit,  Flugzeit, Motorzeit, ID,Zyklen,Verbrauch, minV,Sprit\n",
+		"header":"     Datum; Zeit;           Name;  i; Ges.zeit;  Flugzeit; Motorzeit; ID;Zyklen;Verbrauch; minV;Sprit\n",
 		"headerAkku":"     Zyklen                Verbrauch zuletzt       Gesamtverbrauch",
 		"delete_Akku":"ID = -1 löscht den Akku"
 	}
