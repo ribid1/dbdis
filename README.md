@@ -98,8 +98,8 @@ On the first line you can config your battery, and on the second line you could 
 ### Flight book:  
 After every flight an entry in the dbdis_Log.txt is made.  
 You can look at this file just from your transmitter,  
-but you can also copy these entrys by Crtl-C, then navigate to the first empty cell in the dbdis_Log_en.xlsm or the dbdis_Log_de.xlsm and  
-then run the included Makro "Import_Data":
+but you can also copy these entrys by Crtl-C, then navigate to the first empty cell in the dbdis_Log_en.xlsm  
+or the dbdis_Log_de.xlsm and then run the included Makro "Import_Data":
 
 ![dbdis_log_en](https://github.com/ribid1/dbdis/blob/master/dbdis-img/dbdis_Log_en.JPG)
 ![dbdis_log_de](https://github.com/ribid1/dbdis/blob/master/dbdis-img/dbdis_Log_de.JPG)
