@@ -44,7 +44,7 @@ http://swiss-aerodesign.com/calculated-capacity.html
 ### Examples:  
 ![TDF](https://github.com/ribid1/dbdis/blob/master/dbdis-img/TDF.jpg)
 ![T-Rex700](https://github.com/ribid1/dbdis/blob/master/dbdis-img/T-Rex700.png)
-![QC650](https://github.com/ribid1/dbdis/blob/master/dbdis-img/QC650.jpg)
+![QC650](https://github.com/ribid1/dbdis/blob/master/dbdis-img/QC650.png)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator.jpg)
 ![Polikarpov](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Polikarpov.png)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator2.png)
