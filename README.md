@@ -95,6 +95,15 @@ You have two possibilities to add a batterie:
 On the first line you can config your battery, and on the second line you could adjust the values if you want.  
 ![Config Batteries](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Config_Batteries.png)
 
+### Flight book:  
+After every flight an entry in the dbdis_Log.txt is made.  
+You can look at this file just from your transmitter,  
+but you can also copy these entrys by Crtl-C, then navigate to the first empty cell in the dbdis_Log_en.xlsm or the dbdis_Log_de.xlsm and  
+then run the included Makro "Import_Data":
+
+![dbdis_log_en](https://github.com/ribid1/dbdis/blob/master/dbdis-img/dbdis_Log_en.JPG)
+![dbdis_log_de](https://github.com/ribid1/dbdis/blob/master/dbdis-img/dbdis_Log_de.JPG)
+
 
 ### History:  
   
@@ -128,5 +137,5 @@ V2.4 Second page and speed box added
 V2.6 Changed the format of the config file to .jsn  
 V3.0 Added an input Window to config batteries  
   - Added Rfid Sensor Values  
-  - After every flight in the dbsis_Log.txt an log entry is made with important datas
-  - Added  dbdis_Log.xlsm with the Makro "Import_Data" as an example how you can Import very easy the log entries from the dbsis_Log.txt to Excel  
+  - After every flight in the dbsis_Log.txt a log entry is made with important datas
+  - Added  dbdis_Log_en.xlsm and dbdis_Log_de.xlsm with the Makro "Import_Data" as an example how you can Import very easy the log entries from the dbsis_Log.txt to Excel  
