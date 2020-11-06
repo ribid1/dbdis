@@ -1114,7 +1114,7 @@ local function loop()
 	for i,RxTyp in ipairs(RxTypen) do
 		Rx[RxTyp].percent = txtelemetry[RxTyp.."Percent"] 
 		
-		if vars.engineSw then Rx.rx1.percent = system.getInputsVal(vars.engineSw) * 100 end ----------------- zum Testen!!!!!!!!!!!!!!!!!!!
+		--if vars.engineSw then Rx.rx1.percent = system.getInputsVal(vars.engineSw) * 100 end ----------------- zum Testen!!!!!!!!!!!!!!!!!!!
 
 		if not vars.Rx[RxTyp].initial then 
 			if Rx[RxTyp].percent > 99.0 then 
