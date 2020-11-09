@@ -65,6 +65,9 @@
 	V2.4 Second page and speed box added	
 	V2.6 Changed the format of the config file to .jsn 
 	V2.7
+	V3.0 Flightbook and RFid Sensors added
+		- Site "BAT" to configurate Batteries added
+	V3.1 
 
 --]]
 
@@ -105,7 +108,7 @@ collectgarbage()
 --------------------------------------------------------------------------------
 local appName = "dbdis"
 local setupvars = {}
-local Version = "3.0"
+local Version = "3.1"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
