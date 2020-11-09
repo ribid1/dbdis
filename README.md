@@ -141,5 +141,5 @@ V3.0 Added an input Window to config batteries
   - After every flight in the dbsis_Log.txt a log entry is made with important datas
   - Added  dbdis_Log_en.xlsm and dbdis_Log_de.xlsm with the Makro "Import_Data" as an example how you can Import very easy the log entries from the dbsis_Log.txt to Excel   
   
-V3.1 To Interact with the CalCa-Elec from  Walter Loetscher I needed to add two lines that his app will get the capacity from the "BAT"  
-    site, or the Rfid Sensor in the dbdis app.
+V3.1 To Interact with the CalCa-Elec from  Walter Loetscher I had to add two lines that his app will get the capacity from the "BAT"  
+      site, or the Rfid Sensor in the dbdis app.
