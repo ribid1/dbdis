@@ -153,7 +153,6 @@ local function getValues()
 	else Calca_capacity = sCapacity
 	end	
 	if dbdis_capacity and dbdis_capacity > 1 then Calca_capacity = dbdis_capacity end         -- diese Zeile hinzugefügt###########################
-	print(sThrust00.."-"..sThrust25)
 	t[0] = sThrust00 * 10000 / Calca_capacity / 3.6
 	t[10] = sThrust25 * 100000 / Calca_capacity / 3.6
 	t[20] = sThrust50 * 100000 / Calca_capacity / 3.6
