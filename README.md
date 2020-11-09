@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **3.0**
+Latest Version: **3.1**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -139,4 +139,7 @@ V2.6 Changed the format of the config file to .jsn
 V3.0 Added an input Window to config batteries  
   - Added Rfid Sensor Values  
   - After every flight in the dbsis_Log.txt a log entry is made with important datas
-  - Added  dbdis_Log_en.xlsm and dbdis_Log_de.xlsm with the Makro "Import_Data" as an example how you can Import very easy the log entries from the dbsis_Log.txt to Excel  
+  - Added  dbdis_Log_en.xlsm and dbdis_Log_de.xlsm with the Makro "Import_Data" as an example how you can Import very easy the log entries from the dbsis_Log.txt to Excel   
+  
+V3.1 To Interact with the CalCa-Elec from  Walter Loetscher I needed to add two lines that his app will get the capacity from the "BAT"  
+    site, or the Rfid Sensor in the dbdis app.
