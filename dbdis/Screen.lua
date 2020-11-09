@@ -1172,7 +1172,7 @@ local function loop()
 			if vars.AkkusID[drawVal.batID_sens] then 
 				capacity = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Capacity
 				cell_count = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].iCells
-				cell_count = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].batC
+				drawVal.batC_sens = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].batC
 				lastUsedCapacity = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].usedCapacity
 				
 			else
@@ -1195,8 +1195,6 @@ local function loop()
 			sensor = system.getSensorValueByID(vars.batC_sens[1], vars.batC_sens[2])
 			if (sensor and sensor.valid) then 
 				drawVal.batC_sens = sensor.value 
-			else
-				drawVal.batC_sens = -1
 			end
 				
 			-- Kapazität von Rfid
@@ -1237,7 +1235,7 @@ local function loop()
 			drawVal.batID_sens = vars.Akku1ID
 		end
 	end
-	if capacity > 0 then  dbdis_capacity = capacity end
+	if capacity > 0 then  dbdis_capacity = capacity end  --dbdis_capacity wird in CalCa-Elec verwendet
 			
 	
 	-- Read Sensor Parameter Voltage 
