@@ -1,39 +1,49 @@
-local anCapaGo, anVoltGo
-local battery_voltage, battery_voltage_average, used_capacity = 0.0, 0.0, -1.0   -- battery_voltage_average von -1.0 auf 0.0 geändert
-local remaining_capacity_percent, remaining_fuel_percent = 100, 100
-local status1, status2 = "No Status" , "No Status"
-local next_capacity_announcement, next_value_announcement, next_voltage_announcement, tickTime = 0, 0, 0, 0
-local next_capacity_alarm, next_voltage_alarm = 0, 0
-local last_averaging_time = 0
-local voltage_alarm_dec_thresh
-local voltages_list = {}
-local RxTypen = {"rx1", "rx2", "rxB"}
-local gyro_channel_value = 17
-local iKapAlarm, iVoltageAlarm, imaxAlarm = 0, 0, 5
-local capacity = 1
-local cell_count = 1
+local AkkuFull = 4.08  --bei einer Spannung über diesen Wert wird der Akku als voll erkannt
+local AkkuUsed = 4.08  --bei einer Spannung unter diesem Wert wird der Akku als verwendet erkannt
+local imaxPreAlarm = 2  -- maximale Anzahl Voralarm
+local imaxMainAlarm = 4 -- maximale Anzahl Hauptalarm
+local imaxVoltAlarm = 6 -- maximale Anzahl voltage Alarm
 local xStart
 local yStart
-local xli, xre = 2, 192 -- x Abstand der Anzeigeboxen vom linken Rand
-local lengthSep = 160 - (xre - 160) - xli
-local vars = {}
-local MinMaxlbl = {}
-local drawfunc = {}
+local xMitte = 159
+local xli = 1 -- x Abstand der Anzeigeboxen vom linken Rand
+local lengthSep = 127
+local lengthBox = 129
+local xre = 190  -- xMitte - xli - lengthSep + xMitte
+local yborder = 6
+local col1, col2, col3 = 0,0,0
+local imainAlarm, ipreAlarm = 0,0
+local iVoltageAlarm = 0
+local next_capacity_alarm, next_voltage_alarm = 0, 0
+local next_capacity_announcement, next_value_announcement, next_voltage_announcement, tickTime = 0, 0, 0, 0
+local newTime
 local anCapaGo
 local anCapaValGo
-local yborder = 6
-local drawVal = {}
-local Rx = {}
-local RfID = -1
+local anVoltGo
+local timeSw_val
+local resetSw_val
+local engineSw_val
+local engineOffSw_val
+local sensor
+local txtelemetry
+local newbatID = 0
+--local reset = false
+local gyro_channel_value = 17
 local calcaApp = false
-local lastUsedCapacity = 0
 local minvperc = 0
-local AkkuFull = 4.06  --bei einer Spannung über diesen Wert wird der Akku als voll erkannt
-local AkkuUsed = 4.02  --bei einer Spannung unter diesem Wert wird der Akku als bereits etwas entladen erkannt
+local last_averaging_time = 0
+local vars = {}
+local voltages_list = {}
+local drawfunc = {}
+local calcfunc = {}
+local MinMaxlbl = {}
+local Valuelbl = {}
+local RxTypen = {"rx1", "rx2", "rxB"}
 
+MinMaxlbl = {["motor_current_sens"] = true, ["bec_current_sens"] = true, ["pwm_percent_sens"] = true, ["fet_temp_sens"] = true, ["throttle_sens"] = true, ["I1_sens"] = true, ["I2_sens"] = true, ["Temp_sens"] = true, ["rotor_rpm_sens"] = true,
+		["altitude_sens"] = true, ["speed_sens"] = true, ["vario_sens"] = true, ["U1_sens"] = true, ["U2_sens"] = true, ["pump_voltage_sens"] = true, ["ax_sens"] = true, ["ay_sens"] = true, ["az_sens"] = true}
+Valuelbl = {["UsedCap1_sens"] = true, ["UsedCap2_sens"] = true, ["OverI_sens"] = true,["used_capacity_sens"] = true, ["remaining_fuel_percent_sens"] = true}
 
--- global:
-dbdis_capacity = nil
 
 local function colstd()
 	lcd.setColor(0,0,0)
@@ -49,75 +59,102 @@ local function colalarm()
 end
  
  ---------------------------------------------------Draw functions----------------------------------------
+
+local function drawPercent(value)
+	local function drawPercentsub()
+		local widebat = 50
+		lcd.setColor(col1,col2,col3)
+		lcd.drawRectangle(xMitte-widebat/2, 4, widebat, 22, 3)
+		lcd.drawFilledRectangle(xMitte-widebat/2+1, 5, widebat-2, 20)
+		colstd()
+		lcd.drawRectangle(xMitte-widebat/2-2, 2, widebat+4, 26, 5)
+		lcd.drawRectangle(xMitte-widebat/2-1, 3, widebat+2, 24, 4)
+		lcd.drawText(xMitte - (lcd.getTextWidth(FONT_BIG, string.format("%.f%%",value)) / 2),4, string.format("%.f%%",
+				value),FONT_BIG)
+	end
+	
+	if value <= vars.config.capacity_alarm_thresh then
+		if system.getTime() % 2 == 0 then
+			col1=250 col2 = 0 col3=0--rot
+			drawPercentsub()
+		end
+	elseif value <= vars.config.capacity_alarm_thresh2 then 
+		if system.getTime() % 4 ~= 0 then
+			col1=250 col2 = 250 col3=0 -- gelb
+			drawPercentsub()
+		end
+	else
+		col1=0 col2 = 220 col3=0 --grün
+		drawPercentsub()
+	end
+end
+
+
 -- Draw Battery and percentage display
 local function drawBattery()
-	if used_capacity > -1 then
+	if vars.senslbl.used_capacity_sens or calcaApp then --vars.Value.used_capacity_sens > -1 then
+		if vars.capacity > 0 then
+			vars.remaining_capacity_percent = (vars.capacity - vars.Value.used_capacity_sens + vars.resetusedcapacity - vars.lastUsedCapacity) * 100 / vars.capacity - vars.initial_capacity_percent_used     --math.floor  
+		end
+		if( vars.remaining_capacity_percent > 100 ) then vars.remaining_capacity_percent = 100 end
+		if( vars.remaining_capacity_percent < 0 ) then vars.remaining_capacity_percent = 0 end
 		local temp
 		local topbat = 40   -- original = 48
-		local highbat = 100  -- original = 80
+		local highbat = 107  -- original = 80
 		local widebat = 50
 		-- Battery
-		lcd.drawFilledRectangle(148, topbat-7, 24, 7)	-- top of Battery
-		lcd.drawRectangle(160-widebat/2-2, topbat-2, widebat+4, highbat+4)
-		lcd.drawRectangle(160-widebat/2-1, topbat-1, widebat+2, highbat+2)
-		  
+		lcd.drawFilledRectangle(xMitte-12, topbat-7, 24, 7)	-- top of Battery
+		lcd.drawRectangle(xMitte-widebat/2-2, topbat-2, widebat+4, highbat+4)
+		lcd.drawRectangle(xMitte-widebat/2-1, topbat-1, widebat+2, highbat+2)
+
 		-- Level of Battery
-		local chgH = math.floor(remaining_capacity_percent * highbat / 100)
+		local chgH = math.floor(vars.remaining_capacity_percent * highbat / 100)
 		local chgY = highbat + topbat - chgH
-		local chgHalarm = math.floor(vars.capacity_alarm_thresh * highbat / 100)
+		local chgHalarm = math.floor(vars.config.capacity_alarm_thresh * highbat / 100)
+		local chgHalarm2 = math.floor(vars.config.capacity_alarm_thresh2 * highbat / 100)
 		if chgH < chgHalarm then chgHalarm = chgH end
+		if chgH < chgHalarm2 then chgHalarm2 = chgH end
 		local chgYalarm = highbat + topbat - chgHalarm
+		local chgYalarm2 = highbat + topbat - chgHalarm2
+		
 		  
 		lcd.setColor(0,220,0)
-		lcd.drawFilledRectangle(160-widebat/2, chgY, widebat, chgH) --grün
+		lcd.drawFilledRectangle(xMitte-widebat/2, chgY, widebat, chgH) --grün
+		lcd.setColor(250,250,0)
+		lcd.drawFilledRectangle(xMitte-widebat/2, chgYalarm2, widebat, chgHalarm2) --gelb
 		lcd.setColor(250,0,0)
-		lcd.drawFilledRectangle(160-widebat/2, chgYalarm, widebat, chgHalarm) --rot
+		lcd.drawFilledRectangle(xMitte-widebat/2, chgYalarm, widebat, chgHalarm) --rot
 		colstd()
 		
 		-- Text in battery
-		local drawcapacity = capacity
-		if vars.AkkusID[drawVal.batID_sens] then
+		local drawcapacity = vars.capacity
+		if vars.AkkusID[vars.batID] then
 			if drawcapacity == 1 then drawcapacity = 0 end
-			lcd.drawText(160-(lcd.getTextWidth(FONT_BIG, string.format("%.f",drawcapacity)) / 2),40, string.format("%.f", drawcapacity),FONT_BIG)
-			lcd.drawText(148, 60, "mAh", FONT_MINI)
-
-			temp = string.format("%.f",cell_count).."S"
-			if drawVal.batC_sens > 0 then temp = temp.." / "..string.format("%.f",drawVal.batC_sens).."C" end
+			lcd.drawText(xMitte-(lcd.getTextWidth(FONT_BIG, string.format("%.f",drawcapacity)) / 2),40, string.format("%.f", drawcapacity),FONT_BIG)
+			lcd.drawText(xMitte-12, 60, "mAh", FONT_MINI)
+			--s and C-Rate
+			temp = string.format("%.f",vars.cell_count).."S"
+			if vars.batC > 0 then temp = temp.." / "..string.format("%.f",vars.batC).."C" end
 			if gyro_channel_value == 17 then 
-				lcd.drawText(160-(lcd.getTextWidth(FONT_NORMAL, temp) / 2),142, temp,FONT_NORMAL)
+				lcd.drawText(xMitte-(lcd.getTextWidth(FONT_MINI, temp) / 2),xMitte-11, temp,FONT_MINI)
 			else
 				lcd.setColor(0,0,200)
-				lcd.drawText(160-(lcd.getTextWidth(FONT_MINI,temp) / 2),127,temp,FONT_MINI)
+				lcd.drawText(xMitte-(lcd.getTextWidth(FONT_MINI,temp) / 2),xMitte-27,temp,FONT_MINI)
 				colstd()
 			end
 			
 			-- ID, Name
-			lcd.drawText(160-(lcd.getTextWidth(FONT_NORMAL, string.format("%.f",drawVal.batID_sens)) / 2),79, string.format("%.f", drawVal.batID_sens),FONT_NORMAL)
-			lcd.drawText(160-(lcd.getTextWidth(FONT_MINI, string.format("%s",vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Name)) / 2),104, string.format("%s", vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Name),FONT_MINI)
+			lcd.drawText(xMitte-(lcd.getTextWidth(FONT_NORMAL, string.format("%.f",vars.batID)) / 2),81, string.format("%.f", vars.batID),FONT_NORMAL)
+			lcd.drawText(xMitte-(lcd.getTextWidth(FONT_MINI, string.format("%s",vars.Akkus[vars.AkkusID[vars.batID]].Name)) / 2),114, string.format("%s", vars.Akkus[vars.AkkusID[vars.batID]].Name),FONT_MINI)
 		end
 		
-		if RfID > 0 then
-			lcd.drawCircle(160,89,12)
-			lcd.drawCircle(160,89,13)
+		if vars.RfID > 0 then
+			lcd.drawCircle(xMitte,91,12)
+			lcd.drawCircle(xMitte,91,13)
 		end
-		
-		-- Percentage Display
-		if( remaining_capacity_percent > vars.capacity_alarm_thresh ) then	
-		  lcd.drawRectangle(160-widebat/2-2, 2, widebat+4, 26, 5)
-		  lcd.drawRectangle(160-widebat/2-1, 3, widebat+2, 24, 4)
-		  lcd.drawText(160 - (lcd.getTextWidth(FONT_BIG, string.format("%.0f%%",remaining_capacity_percent)) / 2),4, string.format("%.0f%%",
-					remaining_capacity_percent),FONT_BIG)
-		else
-		  if( system.getTime() % 2 == 0 ) then -- blink every second
-			lcd.drawRectangle(160-widebat/2-2, 2, widebat+4, 26, 5)
-			lcd.drawRectangle(160-widebat/2-1, 3, widebat+2, 24, 4)
-			lcd.drawText(160 - (lcd.getTextWidth(FONT_BIG, string.format("%.0f%%",remaining_capacity_percent)) / 2),4, string.format("%.0f%%",
-					  remaining_capacity_percent),FONT_BIG)
-		  end
-		end
-	end
-	
-	 
+			
+		drawPercent(vars.remaining_capacity_percent)
+	end 
   	--[[
 	Gyro Gain    
 	Mini-Vstabi range is: +40 ... +120
@@ -139,9 +176,9 @@ local function drawBattery()
 		if (gyro_percent > 120) then gyro_percent = 120 end
 
 		-- draw fixed Text
-		lcd.drawText(136,146,"GY",FONT_MINI)
+		lcd.drawText(xMitte-20,149,"GY = ",FONT_MINI)
 		-- draw Max Values
-		lcd.drawText(184 - lcd.getTextWidth(FONT_BIG, string.format("%.0f", gyro_percent)), 141, string.format("%.0f", gyro_percent), FONT_BIG)
+		lcd.drawText(xMitte+18 - lcd.getTextWidth(FONT_MINI, string.format("%.0f", gyro_percent)), 149, string.format("%.0f", gyro_percent), FONT_MINI)
 	end
 
 	collectgarbage()
@@ -149,16 +186,16 @@ end
 
 -- Draw tank and percentage display
 local function drawTank()
-	if remaining_fuel_percent >= 0 then 
-		local topbat = 38   -- original = 48
-		local highbat = 118  -- original = 80
+	if vars.senslbl.remaining_fuel_percent_sens or Calca_dispGas then--vars.Value.remaining_fuel_percent_sens >= 0 then 
+		local topbat = 34   -- original = 48
+		local highbat = 122  -- original = 80
 		local widebat = 26
-		local midbat = 150
-		local ox = 120
+		local midbat = xMitte-10
+		local ox = xMitte-40
 		local oy = 60
-		local left = 168
+		local left = xMitte+8
 		local i
-		local strTank_volume = tostring(vars.tank_volume)
+		local strTank_volume = tostring(math.floor(vars.config.tank_volume))
 
 		 -- gas station symbol
 		-- lcd.drawRectangle(51+ox,31+oy,5,9)  
@@ -171,7 +208,7 @@ local function drawTank()
 		-- lcd.drawPoint(56+ox,35+oy)  
 
 		lcd.setColor(0,220,0)
-		lcd.drawText(52+ox,-17+oy, "F", FONT_BOLD)  
+		lcd.drawText(52+ox,-22+oy, "F", FONT_BOLD)  
 		lcd.setColor(250,0,0)
 		lcd.drawText(52+ox,72+oy, "E", FONT_BOLD) 
 		colstd()
@@ -187,16 +224,21 @@ local function drawTank()
 		lcd.drawFilledRectangle(left, topbat + highbat/4, 12, 1)
 		lcd.drawFilledRectangle(left, topbat + 3*highbat/4, 12, 1)
 
-		  
+		
 		-- Level of fuel
-		local chgH = math.floor(remaining_fuel_percent * highbat / 100)
+		local chgH = math.floor(vars.Value.remaining_fuel_percent_sens * highbat / 100)
 		local chgY = highbat + topbat - chgH
-		local chgHalarm = math.floor(vars.capacity_alarm_thresh * highbat / 100)
+		local chgHalarm = math.floor(vars.config.capacity_alarm_thresh * highbat / 100)
+		local chgHalarm2 = math.floor(vars.config.capacity_alarm_thresh2 * highbat / 100)
 		if chgH < chgHalarm then chgHalarm = chgH end
+		if chgH < chgHalarm2 then chgHalarm2 = chgH end
 		local chgYalarm = highbat + topbat - chgHalarm
+		local chgYalarm2 = highbat + topbat - chgHalarm2
 		  
 		lcd.setColor(0,220,0)
 		lcd.drawFilledRectangle(midbat-widebat/2, chgY, widebat, chgH) --grün
+		lcd.setColor(250,250,0)
+		lcd.drawFilledRectangle(midbat-widebat/2, chgYalarm2, widebat, chgHalarm2) --gelb
 		lcd.setColor(250,0,0)
 		lcd.drawFilledRectangle(midbat-widebat/2, chgYalarm, widebat, chgHalarm) --rot
 		colstd()
@@ -204,26 +246,12 @@ local function drawTank()
 		 -- Text in Tank
 
 		for i = 1, #strTank_volume do
-			lcd.drawText(146,30 + i * 15, string.sub(strTank_volume, i,i),FONT_NORMAL)
+			lcd.drawText(xMitte-14,22 + i * 15, string.sub(strTank_volume, i,i),FONT_NORMAL)
 		end
-		lcd.drawText(141, 45 + #strTank_volume * 15, "ml", FONT_NORMAL)
+		lcd.drawText(xMitte-19, 38 + #strTank_volume * 15, "ml", FONT_NORMAL)
 
-
-
-		-- Percentage Display
-		if( remaining_capacity_percent > vars.capacity_alarm_thresh ) then	
-		  lcd.drawRectangle(160-25-2, 4, 50+4, 28, 5)
-		  lcd.drawRectangle(160-25-1, 5, 50+2, 26, 4)
-		  lcd.drawText(160 - (lcd.getTextWidth(FONT_BIG, string.format("%.0f%%",remaining_fuel_percent)) / 2),6, string.format("%.0f%%",
-					remaining_fuel_percent),FONT_BIG)
-		else
-		  if( system.getTime() % 2 == 0 ) then -- blink every second
-			lcd.drawRectangle(160-25-2, 4, 50+4, 28, 5)
-			lcd.drawRectangle(160-25-1, 5, 50+2, 26, 4)
-			lcd.drawText(160 - (lcd.getTextWidth(FONT_BIG, string.format("%.0f%%",remaining_fuel_percent)) / 2),6, string.format("%.0f%%",
-					  remaining_fuel_percent),FONT_BIG)
-		  end
-		end
+		
+		drawPercent(vars.Value.remaining_fuel_percent_sens)
 	end
   
  	collectgarbage()
@@ -232,13 +260,13 @@ end
 -- Draw Total time box
 function drawfunc.TotalCount() --Total flight Time
 	local std, min, sec, y
-	if vars.timeToCount > 0 then
+	if vars.config.timeToCount > 0 then
 		y = yStart - 2
 		-- draw fixed Text
 		lcd.drawText(xStart, y, vars.trans.ftime, FONT_MINI)
 		
 		-- draw Values
-		lcd.drawText(xStart + 37,y, string.format("%.0f", vars.totalCount), FONT_MINI) -- Anzahl Flüge gesamt
+		lcd.drawText(xStart + 37,y, string.format("%.f", vars.totalCount), FONT_MINI) -- Anzahl Flüge gesamt
 		
 		std = math.floor(vars.totalFlighttime / 3600)
 		min = (vars.totalFlighttime % 3600) / 60
@@ -282,8 +310,23 @@ function drawfunc.EngineTime()	-- engine Time
 	end
 end
 
+-- Draw engine ready box
+function drawfunc.EngineOff()	-- engine Ready
+	local engineText
+	if engineOffSw_val == 1 then 
+		engineText = vars.trans.engineOff
+	else	
+		engineText = vars.trans.engineOn
+		lcd.setColor(255,0,0)
+		lcd.drawRectangle(xStart-1, yStart+1 - yborder / 2, lengthBox-2, 10 + yborder, 3)
+		lcd.drawFilledRectangle(xStart, yStart-1, lengthBox-4, 8+yborder)
+		colstd()
+	end
+	lcd.drawText(xStart + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, engineText)/2,yStart - 4, engineText,FONT_BOLD)
+end
+
 -- Draw Receiver values
-function drawRxValues(RxTyp)	-- Rx Values
+local function drawRxValues(RxTyp)	-- Rx Values
 	local y = yStart - 2
 	local linedist = 10
 	local x1, x2 = 75, 108
@@ -328,23 +371,23 @@ function drawRxValues(RxTyp)	-- Rx Values
     if draw_minRx_voltage < 4.6 then colalarm() else colmin() end
     lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",draw_minRx_voltage)),y - 2, string.format("%.1f",draw_minRx_voltage),FONT_BOLD)
     colstd()
-    if Rx[RxTyp].voltage < 4.6 then colalarm() end
-    lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",Rx[RxTyp].voltage)), y + 15, string.format("%.1f",Rx[RxTyp].voltage),FONT_BOLD)
+    if vars.Rx[RxTyp].voltage < 4.6 then colalarm() end
+    lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BOLD, string.format("%.1f",vars.Rx[RxTyp].voltage)), y + 15, string.format("%.1f",vars.Rx[RxTyp].voltage),FONT_BOLD)
     colstd()
     
     -- Empfangsqualität:
     if draw_minRx_percent < 100 then colalarm() else colmin() end
     lcd.drawText(xStart + x2 - lcd.getTextWidth(FONT_MINI, string.format("%.0f/",draw_minRx_percent)),y, string.format("%.0f/",draw_minRx_percent),FONT_MINI) --Rx_percent
     colstd()
-    lcd.drawText(xStart + x2, y, string.format("%.0f",Rx[RxTyp].percent),FONT_MINI)
-    if draw_minRx_a1 < 9 then colalarm() else colmin() end
+    lcd.drawText(xStart + x2, y, string.format("%.0f",vars.Rx[RxTyp].percent),FONT_MINI)
+    if draw_minRx_a1 < 7 then colalarm() else colmin() end
     lcd.drawText(xStart + x2 - lcd.getTextWidth(FONT_MINI, string.format("%d/",draw_minRx_a1)),y + linedist, string.format("%d/",draw_minRx_a1),FONT_MINI)--xStart=98-
     colstd()
-    lcd.drawText(xStart + x2, y + linedist, string.format("%d",Rx[RxTyp].a1),FONT_MINI)
-    if draw_minRx_a2 < 9 then colalarm() else colmin() end
+    lcd.drawText(xStart + x2, y + linedist, string.format("%d",vars.Rx[RxTyp].a1),FONT_MINI)
+    if draw_minRx_a2 < 7 then colalarm() else colmin() end
     lcd.drawText(xStart + x2 - lcd.getTextWidth(FONT_MINI, string.format("%d/",draw_minRx_a2)),y + linedist * 2, string.format("%d/",draw_minRx_a2),FONT_MINI)
     colstd()
-    lcd.drawText(xStart + x2, y + linedist*2, string.format("%d",Rx[RxTyp].a2),FONT_MINI)
+    lcd.drawText(xStart + x2, y + linedist*2, string.format("%d",vars.Rx[RxTyp].a2),FONT_MINI)
 end
 
 function drawfunc.Rx1Values()	-- Rx1 Values
@@ -372,41 +415,47 @@ function drawfunc.Volt_per_Cell()    -- Flightpack Voltage
 	-- draw Values, average is average of last 1000 values
 	local deci = "%.2f"
 	minvperc = 0
-	local battery_voltage_average_perc = battery_voltage_average / cell_count
+	local battery_voltage_average_perc = vars.battery_voltage_average / vars.cell_count
 	if vars.minvtg == 99.9 then minvperc = 0
-	else minvperc = vars.minvtg/cell_count
+	else minvperc = vars.minvtg/vars.cell_count
 	end
 	if minvperc >= 10.0 then deci = "%.1f" end
-	if vars.initial_voltage_measured and minvperc <= voltage_alarm_dec_thresh then colalarm() else colmin() end
+	if vars.initial_voltage_measured and minvperc <= vars.config.voltage_alarm_thresh / 100 then colalarm() else colmin() end
 	lcd.drawText(xStart + 60 - lcd.getTextWidth(FONT_BIG, string.format(deci, minvperc)),y + 10, string.format(deci, minvperc), FONT_BIG)
 	colstd()
 	deci = "%.2f"
 	if battery_voltage_average_perc >= 10.0 then deci = "%.1f" end
-	if vars.initial_voltage_measured and battery_voltage_average_perc <= voltage_alarm_dec_thresh then colalarm() end
+	if vars.initial_voltage_measured and battery_voltage_average_perc <= vars.config.voltage_alarm_thresh / 100 then colalarm() end
 	lcd.drawText(xStart + 119 - lcd.getTextWidth(FONT_BIG, string.format(deci, battery_voltage_average_perc)),y + 10, string.format(deci, battery_voltage_average_perc), FONT_BIG)
 	colstd()
 end
 --- Used Capacity
 function drawfunc.UsedCapacity()	-- Used Capacity
 	local y = yStart - 2
-	local total_used_capacity = math.ceil( used_capacity + (vars.oldAkku * lastUsedCapacity) + (vars.initial_capacity_percent_used * math.abs(vars.oldAkku -1) * capacity) / 100 )
-
+	local total_used_capacity =  vars.Value.used_capacity_sens - vars.resetusedcapacity + vars.lastUsedCapacity + (vars.initial_capacity_percent_used * vars.capacity) / 100  --math.ceil
+	
+	if col1 > 0 then 
+		lcd.setColor(col1,col2,col3)
+		lcd.drawRectangle(xStart-1, yStart+1 - yborder / 2, lengthBox-2, 33 + yborder, 3)
+		lcd.drawFilledRectangle(xStart, yStart-1, lengthBox-4, 31+yborder)
+		colstd()
+	end
 	-- draw fixed Text
 	lcd.drawText(xStart + 60 - (lcd.getTextWidth(FONT_MINI,vars.trans.usedCapa) / 2),y,vars.trans.usedCapa,FONT_MINI)
 	lcd.drawText(xStart + 96, y + 20, "mAh", FONT_MINI)
 
 	-- draw Values
-	lcd.drawText(xStart + 94 - lcd.getTextWidth(FONT_MAXI, string.format("%.0f",total_used_capacity)),y + 5, string.format("%.0f", total_used_capacity), FONT_MAXI)
+	lcd.drawText(xStart + 94 - lcd.getTextWidth(FONT_MAXI, string.format("%.f",total_used_capacity)),y + 5, string.format("%.f", total_used_capacity), FONT_MAXI)
 end
 
 -- Draw Status
 function drawfunc.Status()	-- Status
-	lcd.drawText(xStart + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, status1)/2,yStart - 4, status1,FONT_BOLD)	
+	lcd.drawText(xStart + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, vars.Value.status_sens)/2,yStart - 4, vars.Value.status_sens,FONT_BOLD)	
 end
 
 -- Draw Status2
 function drawfunc.Status2()	-- Status
-	lcd.drawText(xStart + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, status2)/2,yStart - 4, status2,FONT_BOLD)	
+	lcd.drawText(xStart + lengthSep/2 - lcd.getTextWidth(FONT_BOLD, vars.Value.status2_sens)/2,yStart - 4, vars.Value.status2_sens,FONT_BOLD)	
 end
 
 -- Draw Pump voltage
@@ -421,7 +470,7 @@ function drawfunc.Pump_voltage()	-- Pump voltage
 
 	-- draw Values  
 	if drawminpump_voltage == -999.9 then drawminpump_voltage = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.1f",drawVal.pump_voltage_sens)),y, string.format("%.1f",drawVal.pump_voltage_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.1f",vars.Value.pump_voltage_sens)),y, string.format("%.1f",vars.Value.pump_voltage_sens),FONT_BIG)
 	colmin()
 	lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.1fV",drawminpump_voltage)) / 2,y + 10, string.format("%.1fV",drawminpump_voltage),FONT_MINI)
 	colstd()		
@@ -437,7 +486,7 @@ function drawfunc.RPM()	-- Rotor Speed RPM
 
 	-- draw Values
 	if drawmaxrpm == -999.9 then drawmaxrpm = 0 end
-	lcd.drawText(xStart + 97 - lcd.getTextWidth(FONT_MAXI,string.format("%.0f",drawVal.rotor_rpm_sens)),y,string.format("%.0f",drawVal.rotor_rpm_sens),FONT_MAXI)
+	lcd.drawText(xStart + 97 - lcd.getTextWidth(FONT_MAXI,string.format("%.0f",vars.Value.rotor_rpm_sens)),y,string.format("%.0f",vars.Value.rotor_rpm_sens),FONT_MAXI)
 	colmax()
 	lcd.drawText(xStart + 95 - lcd.getTextWidth(FONT_MINI,string.format("%.0f",drawmaxrpm)),y + 35, string.format("%.0f", drawmaxrpm), FONT_MINI)
 	colstd()	
@@ -456,8 +505,8 @@ function drawfunc.Current() -- current
 	-- draw current 
 	if drawmaxcur == -999.9 then drawmaxcur = 0 end
 	local deci = "%.1f"
-	if drawVal.motor_current_sens >= 100 then deci = "%.0f" end
-	lcd.drawText(xStart + 85 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.motor_current_sens)),y, string.format(deci,drawVal.motor_current_sens),FONT_BIG)
+	if vars.Value.motor_current_sens >= 100 then deci = "%.0f" end
+	lcd.drawText(xStart + 85 - lcd.getTextWidth(FONT_BIG, string.format(deci,vars.Value.motor_current_sens)),y, string.format(deci,vars.Value.motor_current_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0fA",drawmaxcur)) / 2,y + 10, string.format("%.0fA",drawmaxcur),FONT_MINI)
 	colstd()
@@ -475,7 +524,7 @@ function drawfunc.Temp()	-- Temperature
 
 	-- draw Values  
 	if drawmaxtmp == -999.9 then drawmaxtmp = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.fet_temp_sens)),y, string.format("%.0f",drawVal.fet_temp_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",vars.Value.fet_temp_sens)),y, string.format("%.0f",vars.Value.fet_temp_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f°C",drawmaxtmp)) / 2,y + 10, string.format("%.0f°C",drawmaxtmp),FONT_MINI)
 	colstd()
@@ -493,7 +542,7 @@ function drawfunc.PWM()	-- PWM
 
 	-- draw Values  
 	if drawmaxpwm == -999.9 then drawmaxpwm = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.pwm_percent_sens)),y, string.format("%.0f",drawVal.pwm_percent_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",vars.Value.pwm_percent_sens)),y, string.format("%.0f",vars.Value.pwm_percent_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f%%",drawmaxpwm)) / 2,y + 10, string.format("%.0f%%",drawmaxpwm),FONT_MINI)
 	colstd()
@@ -510,7 +559,7 @@ function drawfunc.Throttle()	-- Throttle
 
 	-- draw Values  
 	if drawmaxThrottle == -999.9 then drawmaxThrottle = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.throttle_sens)),y, string.format("%.0f",drawVal.throttle_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",vars.Value.throttle_sens)),y, string.format("%.0f",vars.Value.throttle_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0f%%",drawmaxThrottle)) / 2,y + 10, string.format("%.0f%%",drawmaxThrottle),FONT_MINI)
 	colstd()
@@ -528,7 +577,7 @@ function drawfunc.I_BEC()	-- Ibec
 
 	-- draw Values 
 	if drawmaxIBEC == -999.9 then drawmaxIBEC = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",drawVal.bec_current_sens)),y, string.format("%.0f",drawVal.bec_current_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format("%.0f",vars.Value.bec_current_sens)),y, string.format("%.0f",vars.Value.bec_current_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 110 - lcd.getTextWidth(FONT_MINI, string.format("%.0fA",drawmaxIBEC)) / 2,y + 10, string.format("%.0fA",drawmaxIBEC),FONT_MINI)
 	colstd()
@@ -545,9 +594,9 @@ function drawfunc.Altitude() -- altitude
 		
 	-- draw altitude
 	local deci = "%.1f"
-	if drawVal.altitude_sens >= 100 or drawVal.altitude_sens <= -100 then deci = "%.0f" end
+	if vars.Value.altitude_sens >= 100 or vars.Value.altitude_sens <= -100 then deci = "%.0f" end
 	if drawmaxaltitude == -999.9 then drawmaxaltitude = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.altitude_sens)),y + 1, string.format(deci,drawVal.altitude_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,vars.Value.altitude_sens)),y + 1, string.format(deci,vars.Value.altitude_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 111 - lcd.getTextWidth(FONT_MINI, string.format("%.0f",drawmaxaltitude)) / 2,y + 10, string.format("%.0f",drawmaxaltitude),FONT_MINI)
 	colstd()
@@ -566,9 +615,9 @@ function drawfunc.Speed() -- speed
 		
 	-- draw speed
 	local deci = "%.1f"
-	if drawVal.speed_sens >= 10 or drawVal.speed_sens <= -10 then deci = "%.0f" end
+	if vars.Value.speed_sens >= 10 or vars.Value.speed_sens <= -10 then deci = "%.0f" end
 	if drawmaxspeed == -999.9 then drawmaxspeed = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.speed_sens)),y + 1, string.format(deci,drawVal.speed_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,vars.Value.speed_sens)),y + 1, string.format(deci,vars.Value.speed_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 111 - lcd.getTextWidth(FONT_MINI, string.format("%.0f",drawmaxspeed)) / 2,y + 10, string.format("%.0f",drawmaxspeed),FONT_MINI)
 	colstd()
@@ -591,7 +640,7 @@ function drawfunc.Vario() -- vario
 	--if vario >= 10 or vario <= 10 then deci = "%.0f" end
 	if drawmaxvario == -999.9 then drawmaxvario = 0 end
 	if drawminvario == 999.9 then drawminvario = 0 end
-	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,drawVal.vario_sens)),y + 1, string.format(deci,drawVal.vario_sens),FONT_BIG)
+	lcd.drawText(xStart + 78 - lcd.getTextWidth(FONT_BIG, string.format(deci,vars.Value.vario_sens)),y + 1, string.format(deci,vars.Value.vario_sens),FONT_BIG)
 	colmax()
 	lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawmaxvario)),y + 1, string.format("%.1f",drawmaxvario),FONT_MINI)
 	colmin()
@@ -604,21 +653,21 @@ function drawfunc.C1_and_I1() -- C1, I1
 	local y = yStart - 2
 	local drawmax = vars.drawVal.I1_sens.max
 	local deci
-	if drawVal.UsedCap1_sens > -1000 then
+	if vars.senslbl.UsedCap1_sens then -- > -1000 then
 		-- draw C1
 		lcd.drawText(xStart, y, "C", FONT_NORMAL)
 		lcd.drawText(xStart + 9, y + 5 , "1:", FONT_MINI)
 		lcd.drawText(xStart + 53, y + 5, "mAh", FONT_MINI)
 		deci = "%.0f"
-		lcd.drawText(xStart + 53 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.UsedCap1_sens)),y, string.format(deci,drawVal.UsedCap1_sens),FONT_NORMAL)
+		lcd.drawText(xStart + 53 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,vars.Value.UsedCap1_sens)),y, string.format(deci,vars.Value.UsedCap1_sens),FONT_NORMAL)
 	end
-	if drawVal.I1_sens > -1000 then
+	if vars.senslbl.I1_sens then --> -1000 then
 		-- draw I1
 		lcd.drawText(xStart + 80, y, "I", FONT_NORMAL)
 		lcd.drawText(xStart + 84, y + 5, "1:", FONT_MINI)
 		if drawmax == -999.9 then drawmax = 0 end
 		deci = "%.1fA"
-		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawVal.I1_sens)),y - 1, string.format(deci,drawVal.I1_sens),FONT_MINI)
+		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,vars.Value.I1_sens)),y - 1, string.format(deci,vars.Value.I1_sens),FONT_MINI)
 		colmax()
 		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1fA",drawmax)),y + 7, string.format("%.1fA",drawmax),FONT_MINI)
 		colstd()
@@ -630,21 +679,21 @@ function drawfunc.C2_and_I2() -- C2, I2
 	local y = yStart - 2
 	local drawmax = vars.drawVal.I2_sens.max
 	local deci
-	if drawVal.UsedCap2_sens > -1000 then
+	if vars.senslbl.UsedCap2_sens then -- > -1000 then
 		-- draw C1
 		lcd.drawText(xStart, y, "C", FONT_NORMAL)
 		lcd.drawText(xStart + 9, y + 5 , "2:", FONT_MINI)
 		lcd.drawText(xStart + 53, y + 5, "mAh", FONT_MINI)
 		deci = "%.0f"
-		lcd.drawText(xStart + 53 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.UsedCap2_sens)),y, string.format(deci,drawVal.UsedCap2_sens),FONT_NORMAL)
+		lcd.drawText(xStart + 53 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,vars.Value.UsedCap2_sens)),y, string.format(deci,vars.Value.UsedCap2_sens),FONT_NORMAL)
 	end
-	if drawVal.I2_sens > -1000 then
+	if vars.senslbl.I2_sens then -- > -1000 then
 		-- draw I1
 		lcd.drawText(xStart + 80, y, "I", FONT_NORMAL)
 		lcd.drawText(xStart + 84, y + 5, "2:", FONT_MINI)
 		if drawmax == -999.9 then drawmax = 0 end
 		deci = "%.1fA"
-		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawVal.I2_sens)),y - 1, string.format(deci,drawVal.I2_sens),FONT_MINI)
+		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,vars.Value.I2_sens)),y - 1, string.format(deci,vars.Value.I2_sens),FONT_MINI)
 		colmax()
 		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format("%.1fA",drawmax)),y + 7, string.format("%.1fA",drawmax),FONT_MINI)
 		colstd()
@@ -657,7 +706,7 @@ function drawfunc.U1_and_Temp() -- U1, Temp
 	local drawmin = vars.drawVal.U1_sens.min
 	local drawmax = vars.drawVal.Temp_sens.max
 	local deci
-	if drawVal.U1_sens > -1000 then
+	if vars.senslbl.U1_sens then --> -1000 then
 		-- draw U1
 		lcd.drawText(xStart, y, "U", FONT_NORMAL)
 		lcd.drawText(xStart + 9, y + 5 , "1:", FONT_MINI)
@@ -669,14 +718,14 @@ function drawfunc.U1_and_Temp() -- U1, Temp
 		lcd.drawText(xStart + 41 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawmin)),y, string.format(deci,drawmin),FONT_NORMAL)
 		colstd()
 		lcd.drawText(xStart + 49, y, "/", FONT_NORMAL)
-		lcd.drawText(xStart + 75 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.U1_sens)),y, string.format(deci,drawVal.U1_sens),FONT_NORMAL)
+		lcd.drawText(xStart + 75 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,vars.Value.U1_sens)),y, string.format(deci,vars.Value.U1_sens),FONT_NORMAL)
 	end
-	if drawVal.Temp_sens > -1000 then
+	if vars.senslbl.Temp_sens then -- > -1000 then
 		-- draw Temp
 		lcd.drawText(xStart + 83, y, "T:", FONT_NORMAL)
 		if drawmax == -999.9 then drawmax = 0 end
 		deci = "%.0f°C"
-		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawVal.Temp_sens)),y - 1, string.format(deci,drawVal.Temp_sens),FONT_MINI)
+		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,vars.Value.Temp_sens)),y - 1, string.format(deci,vars.Value.Temp_sens),FONT_MINI)
 		colmax()
 		lcd.drawText(xStart + 123 - lcd.getTextWidth(FONT_MINI, string.format(deci,drawmax)),y + 7, string.format(deci,drawmax),FONT_MINI)
 		colstd()
@@ -688,7 +737,7 @@ function drawfunc.U2_and_OI() -- U2, OverI
 	local y = yStart - 4
 	local drawmin = vars.drawVal.U2_sens.min
 	local deci
-	if drawVal.U2_sens > -1000 then
+	if vars.senslbl.U2_sens then-- > -1000 then
 		-- draw U1
 		lcd.drawText(xStart, y, "U", FONT_NORMAL)
 		lcd.drawText(xStart + 9, y + 5 , "2:", FONT_MINI)
@@ -700,54 +749,82 @@ function drawfunc.U2_and_OI() -- U2, OverI
 		lcd.drawText(xStart + 41 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawmin)),y, string.format(deci,drawmin),FONT_NORMAL)
 		colstd()
 		lcd.drawText(xStart + 49, y, "/", FONT_NORMAL)
-		lcd.drawText(xStart + 75 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.U2_sens)),y, string.format(deci,drawVal.U2_sens),FONT_NORMAL)
+		lcd.drawText(xStart + 75 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,vars.Value.U2_sens)),y, string.format(deci,vars.Value.U2_sens),FONT_NORMAL)
 	end
-	if drawVal.OverI_sens > -1000 then
+	if vars.senslbl.OverI_sens then -- > -1000 then
 		-- draw Temp
 		lcd.drawText(xStart + 90, y, "OI:", FONT_NORMAL)
 		deci = "%.0f"
-		if drawVal.OverI_sens > 0 then colalarm() end
-		lcd.drawText(xStart + 120 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,drawVal.OverI_sens)),y, string.format(deci,drawVal.OverI_sens),FONT_NORMAL)
+		if vars.Value.OverI_sens > 0 then colalarm() end
+		lcd.drawText(xStart + 120 - lcd.getTextWidth(FONT_NORMAL, string.format(deci,vars.Value.OverI_sens)),y, string.format(deci,vars.Value.OverI_sens),FONT_NORMAL)
 		colstd()
+	end
+end
+
+function drawfunc.ax_ay_az()
+	local y = yStart - 3
+	local drawmaxa
+	local drawmina
+
+	for i,j in ipairs({"ax_sens", "ay_sens", "az_sens"}) do
+		if vars.senslbl[j] then
+			drawmaxa = vars.drawVal[j].max
+			drawmina = vars.drawVal[j].min
+			
+			-- draw fixed Text
+			lcd.drawText(xStart-42 + 42*i, y, "a  :", FONT_NORMAL)
+			lcd.drawText(xStart-33 + 42*i, y+5, string.char(119+i) , FONT_MINI)
+					
+			-- draw vario 
+			local deci = "%.1f"
+			if drawmaxa == -999.9 then drawmaxa = 0 end
+			if drawmina == 999.9 then drawmina = 0 end
+
+			colmax()
+			lcd.drawText(xStart-4 +42*i - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawmaxa)),y + 1, string.format("%.1f",drawmaxa),FONT_MINI)
+			colmin()
+			lcd.drawText(xStart-4+42*i - lcd.getTextWidth(FONT_MINI, string.format("%.1f",drawmina)),y + 10, string.format("%.1f",drawmina),FONT_MINI)
+			colstd()
+		end
 	end
 end
 
 local function showDisplay(page)
 	local i,j	
 	colstd()
- 		
+
 	--left:	
 	yStart = vars[page].leftstart
-	xStart = xli
+	xStart = xli + 1
 	for i,j in ipairs(vars[page].leftdrawcol) do 
 		if vars[page].cd[j].sep == -1 then
 			yStart = yStart + yborder / 2
 			drawfunc[j]()
-			lcd.drawRectangle(0, yStart - yborder / 2, 130, vars[page].cd[j].y + yborder, 4)
-			yStart = yStart + vars[page].cd[j].y + yborder / 2 + vars[page].cd[j].distdraw
+			lcd.drawRectangle(xli-1, yStart - yborder / 2, lengthBox, vars.cd[j].y + yborder, 4)
+			yStart = yStart + vars.cd[j].y + yborder / 2 + vars[page].cd[j].distdraw
 		else
 			drawfunc[j]()
-			yStart = yStart + vars[page].cd[j].y + vars[page].cd[j].distdraw
+			yStart = yStart + vars.cd[j].y + vars[page].cd[j].distdraw
 			if vars[page].cd[j].sepdraw > 0 then 
 				lcd.drawFilledRectangle(xli, yStart , lengthSep, vars[page].cd[j].sep)
 				yStart = yStart + vars[page].cd[j].sep + vars[page].cd[j].distdraw
 			end
 		end
 	end
-	
+
 --------------	
 	--right
 	yStart = vars[page].rightstart
-	xStart = xre
+	xStart = xre + 1
 	for i,j in ipairs(vars[page].rightdrawcol) do 
 		if vars[page].cd[j].sep == -1 then
 			yStart = yStart + yborder / 2
 			drawfunc[j]()
-			lcd.drawRectangle(190, yStart - yborder / 2, 128, vars[page].cd[j].y + yborder, 4)
-			yStart = yStart + vars[page].cd[j].y + yborder / 2 + vars[page].cd[j].distdraw
+			lcd.drawRectangle(xre-1, yStart - yborder / 2, lengthBox, vars.cd[j].y + yborder, 4)
+			yStart = yStart + vars.cd[j].y + yborder / 2 + vars[page].cd[j].distdraw
 		else
 			drawfunc[j]()
-			yStart = yStart + vars[page].cd[j].y + vars[page].cd[j].distdraw
+			yStart = yStart + vars.cd[j].y + vars[page].cd[j].distdraw
 			if vars[page].cd[j].sepdraw > 0 then 
 				lcd.drawFilledRectangle(xre, yStart , lengthSep, vars[page].cd[j].sep)
 				yStart = yStart + vars[page].cd[j].sep + vars[page].cd[j].distdraw
@@ -778,89 +855,95 @@ local function loadFlights()
   collectgarbage()
 end
 
-
 local function setvars(varstemp)
-	MinMaxlbl = {"motor_current_sens", "bec_current_sens", "pwm_percent_sens", "fet_temp_sens", "throttle_sens", "I1_sens", "I2_sens", "Temp_sens", "rotor_rpm_sens",
-		"altitude_sens", "speed_sens", "vario_sens", "U1_sens", "U2_sens", "pump_voltage_sens"}
-	vars = varstemp
-	for i,RxTyp in ipairs(RxTypen) do
-		Rx[RxTyp] = {}
-		Rx[RxTyp].voltage = 0
-		Rx[RxTyp].percent = 0
-		Rx[RxTyp].a1 = 0
-		Rx[RxTyp].a2 = 0
-	end
-	for i, sens in ipairs(MinMaxlbl) do
-		drawVal[sens] = -1000.0
-	end
-	for i, sens in ipairs({"batC_sens", "batCap_sens", "batCells_sens"}) do
-		drawVal[sens] = -2 
-	end
-	drawVal.batID_sens = -2
-	drawVal.UsedCap1_sens = -1000
-	drawVal.UsedCap2_sens = -1000
-	drawVal.OverI_sens = -1000
-	voltage_alarm_dec_thresh = vars.voltage_alarm_thresh / 100
-	iKapAlarm = 0
-	iVoltageAlarm = 0
+	if varstemp then vars = varstemp end
 	collectgarbage()
 end
--- maximal bzw. minimalWerte setzen
-local function setminmax()
-	local i
-	local sens
-	local RxTyp
-	
+
+local function setminmax()	-- maximal bzw. minimalWerte setzen
 	
 	for i,RxTyp in ipairs(RxTypen) do
-		vars.Rx[RxTyp] = {}
 		vars.Rx[RxTyp].initial = false
 		vars.Rx[RxTyp].mina1 = 99
 		vars.Rx[RxTyp].mina2 = 99
 		vars.Rx[RxTyp].minvoltage = 9.9
 		vars.Rx[RxTyp].minpercent = 101.0
+		vars.Rx[RxTyp].voltage = 0
+		vars.Rx[RxTyp].percent = 0
+		vars.Rx[RxTyp].a1 = 0
+		vars.Rx[RxTyp].a2 = 0
 	end
 	
-	for i, sens in ipairs(MinMaxlbl) do
-		vars.drawVal[sens] = {}
-		vars.drawVal[sens].min = 999.9
-		vars.drawVal[sens].max = -999.9
-		vars.drawVal[sens].measured = true
+	for i in pairs(MinMaxlbl) do
+		vars.Value[i] = 0
+		vars.drawVal[i].min = 999.9
+		vars.drawVal[i].max = -999.9
+		vars.drawVal[i].measured = false
 	end
-		
+	
+	vars.Value.batC_sens = -2
+	vars.Value.batCap_sens = -2
+	vars.Value.batCells_sens = -2
+	vars.Value.UsedCap1_sens = 0 -- -1000
+	vars.Value.UsedCap2_sens = 0 -- -1000
+	vars.Value.OverI_sens = 0 -- -1000
+	vars.Value.remaining_fuel_percent_sens = 0 --100
+	--vars.Value.battery_voltage_sens = 0
+	vars.Value.status_sens = "No Status"
+	vars.Value.status2_sens = "No Status"
 	vars.drawVal.pump_voltage_sens.measured = false
 	vars.drawVal.U1_sens.measured = false
 	vars.drawVal.U2_sens.measured = false
+	vars.battery_voltage_average = 0
 	vars.initial_voltage_measured = false
-	vars.minvtg, vars.maxvtg = 99.9, 0
+	vars.minvtg = 99.9
 	vars.flightTime = 0
 	vars.engineTime = 0
 	vars.counttheFlight = false
     vars.counttheTime = false  
 	vars.countedTime = 0
 	vars.lastFlightTime = 0
-	vars.initial_cell_voltage = 0
+	vars.RfID = -1
+	vars.SWold_Akku = -2
+	imainAlarm = 0
+	ipreAlarm = 0
+	iVoltageAlarm = 0
 	calcaApp = false
-	RfID = -1
-	lastUsedCapacity = 0
-
-	
 	collectgarbage()
 end
 
 local function init (varstemp)
-	varstemp.drawVal = {}
-	varstemp.Rx = {}
-	varstemp.drawVal.UsedCap1_sens = {}	
-	varstemp.drawVal.UsedCap2_sens = {}
-	varstemp.drawVal.OverI_sens = {}
-	varstemp.initial_capacity_percent_used = 0
-	varstemp.oldAkku = 0
- 	setvars(varstemp)
-	setminmax()
+	if varstemp then vars = varstemp end
+	vars.Value = {}
+	vars.drawVal = {}
+	vars.Rx = {}
+	for i,RxTyp in ipairs(RxTypen) do
+		vars.Rx[RxTyp] = {}
+	end
+	for i in pairs(MinMaxlbl) do
+		vars.drawVal[i] = {}
+	end
 	
-		
-	voltage_alarm_dec_thresh = vars.voltage_alarm_thresh / 100
+	vars.receiverOn = false
+	vars.drawVal.UsedCap1_sens = {}	
+	vars.drawVal.UsedCap2_sens = {}
+	vars.drawVal.OverI_sens = {}
+	vars.Value.used_capacity_sens = 0
+	vars.Value.battery_voltage_sens = 0
+	vars.initial_capacity_percent_used = 0
+	vars.remaining_capacity_percent = 100
+	vars.resetusedcapacity = 0
+	vars.lastUsedCapacity = 0
+	vars.capacity = 0
+	vars.usedAkku = false
+	vars.AkkuwasFull = false
+	vars.cell_count = 1
+	vars.batID = 0
+	vars.batC = 0
+ 	setvars()
+	setminmax()
+	--reset = false
+
 	loadFlights()
 	
 	vars.lastTime = system.getTimeCounter()
@@ -881,7 +964,6 @@ local function saveFlights()
 end
 
 local function saveAkkus()
-	local i, j
 	table.sort(vars.Akkus, function (i,j) return i.ID < j.ID end)
 	vars.AkkusID ={}
 	for i,j in ipairs(vars.Akkus) do
@@ -899,35 +981,43 @@ end
 local function writeLog()
 
 	-- save Akkus
-	local mahCapaLog = 0
-    local battDspCount = 0
 	
-	if vars.AkkusID[drawVal.batID_sens] then 	
-		--if (battery_voltage_average / cell_count) < (vars.initial_cell_voltage - 0.1) or used_capacity > (capacity / 10) then -- Akku wurde gebraucht
-		if (battery_voltage_average / cell_count) < AkkuUsed then -- Akku wurde gebraucht
-			if vars.initial_cell_voltage > AkkuFull  or calcaApp then -- Akku frisch geladen gewesen
-				vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Cycl = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Cycl + 1
-				vars.Akkus[vars.AkkusID[drawVal.batID_sens]].usedCapacity = 0.0
+    local battDspCount = 0
+	local usedcap = 0
+	
+	if vars.AkkusID[vars.batID] then 	
+		--if (vars.battery_voltage_average / cell_count) < (vars.initial_cell_voltage - 0.1) or vars.Value.used_capacity_sens > (capacity / 10) then -- Akku wurde gebraucht
+		if (vars.battery_voltage_average / vars.cell_count) < AkkuUsed then -- Akku wurde gebraucht
+			if (vars.AkkuwasFull and not vars.usedAkku) then -- or (vars.resetusedcapacity == 0 and (vars.Value.battery_voltage_sens == 0 or (calcaApp and vars.Value.battery_voltage_sens == 0))) then -- Akku frisch geladen gewesen
+				vars.Akkus[vars.AkkusID[vars.batID]].Cycl = vars.Akkus[vars.AkkusID[vars.batID]].Cycl + 1
+				vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity = 0
+				vars.usedAkku = true
+				vars.AkkuwasFull = false
+				--print("-5")
 			end
-			vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Ah = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Ah + (used_capacity / 1000)
-			vars.Akkus[vars.AkkusID[drawVal.batID_sens]].lastVoltage = battery_voltage_average / cell_count
-			vars.Akkus[vars.AkkusID[drawVal.batID_sens]].usedCapacity = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].usedCapacity + used_capacity			
+			usedcap = vars.Value.used_capacity_sens - vars.resetusedcapacity
+			vars.resetusedcapacity = vars.Value.used_capacity_sens
+			vars.Akkus[vars.AkkusID[vars.batID]].Ah = vars.Akkus[vars.AkkusID[vars.batID]].Ah + (usedcap / 1000)
+			vars.Akkus[vars.AkkusID[vars.batID]].lastVoltage = vars.battery_voltage_average / vars.cell_count
+			vars.lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity + usedcap
+			vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity = vars.lastUsedCapacity	
+			--print("-4:"..vars.lastUsedCapacity)
 			saveAkkus()
-			mahCapaLog = string.format("%.0f",used_capacity)
+			--reset = true
 		end
-		battDspCount = string.format("%.0f",vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Cycl)
+		battDspCount = string.format("%.0f",vars.Akkus[vars.AkkusID[vars.batID]].Cycl)
 	end
 		
 	-- write logfile
-	local dtflighttime = string.format("% 4d:%02d:%02d", math.floor(vars.flightTime / 3600000), (vars.flightTime % 3600000) / 60000, (vars.flightTime % 60000) / 1000)
-	local dtengineTime = string.format("% 4d:%02d:%02d", math.floor(vars.engineTime / 3600000), (vars.engineTime % 3600000) / 60000, (vars.engineTime % 60000) / 1000)
-	local dttotalFlighttime = string.format("% 3d:%02d:%02d", math.floor(vars.totalFlighttime / 3600), (vars.totalFlighttime % 3600) / 60, vars.totalFlighttime % 60)
+	local dtflighttime = string.format("%4d:%02d:%02d", math.floor(vars.flightTime / 3600000), (vars.flightTime % 3600000) / 60000, (vars.flightTime % 60000) / 1000)
+	local dtengineTime = string.format("%4d:%02d:%02d", math.floor(vars.engineTime / 3600000), (vars.engineTime % 3600000) / 60000, (vars.engineTime % 60000) / 1000)
+	local dttotalFlighttime = string.format("%4d:%02d:%02d", math.floor(vars.totalFlighttime / 3600), (vars.totalFlighttime % 3600) / 60, vars.totalFlighttime % 60)
     local dt = system.getDateTime()
-    local dtDate = string.format("%d.%02d.%02d", dt.year, dt.mon, dt.day)
-	local dtTime = string.format("%d:%02d", dt.hour, dt.min)
-	local usedFuel = math.floor((100 - remaining_fuel_percent) * vars.tank_volume / 100)
+    local dtDate = string.format("%02d.%02d.%02d", dt.year, dt.mon, dt.day)
+	local dtTime = string.format("%02d:%02d", dt.hour, dt.min)
+	local usedFuel = math.floor((100 - vars.Value.remaining_fuel_percent_sens) * vars.config.tank_volume / 100)
 	
-    local logLine = string.format("%s;%s;%15s;% 3d;%s;%s;%s;% 3d;% 6d;% 9d;%  .2f;% 5d", dtDate, dtTime, vars.model, vars.totalCount, dttotalFlighttime, dtflighttime, dtengineTime, drawVal.batID_sens, battDspCount, mahCapaLog, minvperc, usedFuel)
+    local logLine = string.format("%s;%s;%15s;%4s;%4s;%s;%s;% 3d;% 6d;% 9d;%  .2f;% 5d", dtDate, dtTime, vars.model, math.floor(vars.totalCount), dttotalFlighttime, dtflighttime, dtengineTime, vars.batID, battDspCount, string.format("%.0f",usedcap), minvperc, usedFuel)
 	local fn = vars.appName.."_Log.txt"          --"Apps/"..vars.appName.."/Log_01.txt"
 	local header = true
 	local fwriteLog = io.open(fn,"r")
@@ -982,19 +1072,19 @@ local function average(value)
 end   
 
 -- Count percentage from cell voltage
-local function get_capacity_percent_used()
+local function get_capacity_percent_used(cell_voltage)
 	local result=0
 	local i
-	if(vars.initial_cell_voltage > 4.2 or vars.initial_cell_voltage < 3.00)then
-		if(vars.initial_cell_voltage > 4.2)then
+	if(cell_voltage > 4.2 or cell_voltage < 3.00)then
+		if(cell_voltage > 4.2)then
 			result=0
 		end
-		if(vars.initial_cell_voltage < 3.00)then
+		if(cell_voltage < 3.00)then
 			result=100
 		end
 		else
 		for i,v in ipairs(percentList) do
-			if ( v[1] >= vars.initial_cell_voltage ) then
+			if ( v[1] >= cell_voltage ) then
 				result =  100 - v[2]
 				break
 			end
@@ -1014,45 +1104,20 @@ end
 
 local function FlightTime()
 
-	local timeSw_val = system.getInputsVal(vars.timeSw)
-	local engineSw_val = system.getInputsVal(vars.engineSw)
-	local resetSw_val = system.getInputsVal(vars.resSw)
+	timeSw_val = system.getInputsVal(vars.switches.timeSw)
+	engineSw_val = system.getInputsVal(vars.switches.engineSw)
 	
-
-	-- to be in sync with a system timer, do not use CLR key 
-	if (resetSw_val == 1) then
-		if vars.counttheFlight then 
-			vars.counted = false 
-			if vars.Rx.rx1.initial then writeLog() end
-		end
-		setminmax()
-		vars.lastTime = newTime
-		vars.lastEngineTime = newTime - vars.engineTime
-	end
-	
-	if vars.timeSw ~= nil and timeSw_val ~= 0.0 and vars.Rx.rx1.initial then 
+	if vars.switches.timeSw ~= nil and timeSw_val ~= 0.0 then 
 		if timeSw_val == 1 then
 			vars.flightTime = newTime - vars.lastTime
 			vars.counttheTime = false
-			if vars.timeToCount > 0 and not vars.counted then 
+			if vars.config.timeToCount > 0 and not vars.counted then 
 				vars.todayCount = vars.todayCount + 1
 				vars.counted = true
 			end
-			if Rx.rx1.percent < 1 and vars.timeToCount > 0 and vars.flightTime > vars.timeToCount * 1000 then  --Empfänger aus während Stoppuhr läuft
-				if not vars.counttheFlight then 
-					vars.totalCount = vars.totalCount + 1 
-				end
-				vars.totalFlighttime = vars.totalFlighttime + ((vars.flightTime - vars.lastFlightTime) / 1000)
-				system.pSave("todayCount", vars.todayCount)
-				system.pSave("lastDay", math.floor(system.getTime() / 86400))			
-				saveFlights()
-				writeLog()
-				vars.counted = false
-				vars.Rx.rx1.initial = false
-			end
 		else	-- Stoppuhr gestoppt
 			vars.lastTime = newTime - vars.flightTime -- properly start of first interval
-			if vars.timeToCount > 0 and vars.flightTime > vars.timeToCount * 1000 and not vars.counttheFlight then  -- Count of the flights
+			if vars.config.timeToCount > 0 and vars.flightTime > vars.config.timeToCount * 1000 and not vars.counttheFlight then  -- Count of the flights
 				vars.totalCount = vars.totalCount + 1
 				saveFlights()
 				system.pSave("todayCount", vars.todayCount)
@@ -1072,7 +1137,7 @@ local function FlightTime()
 		vars.lastTime = newTime
 	end
   
-	if vars.engineSw ~= nil and engineSw_val ~= 0.0 and vars.Rx.rx1.initial then	
+	if vars.switches.engineSw ~= nil and engineSw_val ~= 0.0 then	
 		if engineSw_val == 1 then
 			vars.engineTime = newTime - vars.lastEngineTime
 		else
@@ -1082,334 +1147,489 @@ local function FlightTime()
 		vars.lastEngineTime = newTime
 	end
 	
-	
-	if Rx.rx1.percent < 1 and vars.Rx.rx1.initial then -- Empfänger aus bei gestoppter Stoppuhr
-		if vars.counttheFlight then 
-			vars.counted = false 
-			writeLog()
-		end
-		vars.Rx.rx1.initial = false
-	end
-	
-	
-		   
 	collectgarbage()
 end
-  
 
-local function loop()
-	local sensor
-	local txtelemetry
-	local anVoltGo = system.getInputsVal(vars.anVoltSw)
-	local tickTime = system.getTime()
-	local i
-	local sens
-	local temp
-	local AkkuNeu = false
-	
-	newTime = system.getTimeCounter()
-	
-	-- Rx values:
-	txtelemetry = system.getTxTelemetry()
-	for i,RxTyp in ipairs(RxTypen) do
-		Rx[RxTyp].percent = txtelemetry[RxTyp.."Percent"] 
-		
-		--if vars.engineSw then Rx.rx1.percent = system.getInputsVal(vars.engineSw) * 100 end ----------------- zum Testen!!!!!!!!!!!!!!!!!!!
-
-		if not vars.Rx[RxTyp].initial then 
-			if Rx[RxTyp].percent > 99.0 then 
-				setminmax()
-				vars.lastFlightTime = 0
-				vars.flightTime = 0
-				vars.engineTime = 0
-				vars.lastTime = newTime
-				vars.lastEngineTime = newTime - vars.engineTime
-				vars.counttheFlight = false
-				vars.counttheTime = false
-				vars.Rx[RxTyp].initial = true
-			end
-		end
-		
-		if vars.Rx[RxTyp].initial then
-			Rx[RxTyp].voltage = txtelemetry[RxTyp.."Voltage"]
-			Rx[RxTyp].a1 = txtelemetry.RSSI[i*2-1]
-			Rx[RxTyp].a2 = txtelemetry.RSSI[i*2]
-			if Rx[RxTyp].voltage > 0.0 and Rx[RxTyp].voltage < vars.Rx[RxTyp].minvoltage then vars.Rx[RxTyp].minvoltage = Rx[RxTyp].voltage end
-			if Rx[RxTyp].percent > 0.0 and Rx[RxTyp].percent < vars.Rx[RxTyp].minpercent then vars.Rx[RxTyp].minpercent = Rx[RxTyp].percent end
-			if Rx[RxTyp].a1 > 0 and Rx[RxTyp].a1 < vars.Rx[RxTyp].mina1 then vars.Rx[RxTyp].mina1 = Rx[RxTyp].a1 end
-			if Rx[RxTyp].a2 > 0 and Rx[RxTyp].a2 < vars.Rx[RxTyp].mina2 then vars.Rx[RxTyp].mina2 = Rx[RxTyp].a2 end
-		end
+local function batIDchanged()
+	vars.capacity = vars.Akkus[vars.AkkusID[vars.batID]].Capacity
+	dbdis_capacity = vars.capacity
+	vars.cell_count = vars.Akkus[vars.AkkusID[vars.batID]].iCells
+	vars.batC = vars.Akkus[vars.AkkusID[vars.batID]].batC
+	if vars.lastUsedCapacity == 0 then 
+		vars.lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity
 	end 
-	
-	temp = system.getInputsVal(vars.anCapaSw)
-	if anCapaGo ~= temp then
-		anCapaGo = temp
-		next_capacity_announcement = tickTime
-	end
-	
-	temp = system.getInputsVal(vars.anCapaValSw)
-	if anCapaValGo ~= temp then
-		anCapaValGo = temp
-		next_value_announcement = tickTime
-	end
-			
-    
-	FlightTime()
-		
-	if vars.gyChannel ~= 17 then gyro_channel_value = system.getInputs(vars.gyro_output)
-	else gyro_channel_value = 17
-	end
-	
-
-	-- Akku ID von Rfid
-	sensor = system.getSensorValueByID(vars.batID_sens[1], vars.batID_sens[2])
-	if sensor and sensor.valid then
-		temp = sensor.value
-		if temp ~= RfID and temp > 0 then
-			RfID = temp
-			drawVal.batID_sens = temp
-			
-			if vars.AkkusID[drawVal.batID_sens] then 
-				capacity = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].Capacity
-				cell_count = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].iCells
-				drawVal.batC_sens = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].batC
-				lastUsedCapacity = vars.Akkus[vars.AkkusID[drawVal.batID_sens]].usedCapacity
-				
+	if vars.AkkuwasFull then
+		vars.usedAkku = false
+		vars.lastUsedCapacity = 0
+	else
+		if vars.usedAkku  then -- Akku war nicht voll und usedCapacity > 0 oder der Akku wurde bereits gespeichert
+				--print("batID -1:"..vars.batID)
+			if vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity == 0 then -- jetzt usedCapacity = 0
+				--print("UC 0:"..vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity)
+				if ( vars.Value.battery_voltage_sens / vars.cell_count) > 1.1  then
+					vars.initial_capacity_percent_used = get_capacity_percent_used(vars.Value.battery_voltage_sens / vars.cell_count)
+					system.messageBox("Init. used cap.:"..string.format("%.fmAh",vars.initial_capacity_percent_used*vars.capacity/100) ,5)
+					if vars.capacity > 0 then 
+						 vars.initial_capacity_percent_used  = vars.initial_capacity_percent_used - (vars.Value.used_capacity_sens-vars.resetusedcapacity)/vars.capacity*100
+					end
+				end
+				vars.lastUsedCapacity = 0
+				vars.usedAkku = false
+				--print("IUCP 1: "..vars.initial_capacity_percent_used)
+			else --jetzt usedCapacity > 0
+				vars.lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity 
+				--print("LUC 2: "..vars.lastUsedCapacity)
+			end
+		else -- Akku war nicht voll und usedCapacity = 0
+			if vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity > 0 then -- jetzt usedCapacity > 0
+				vars.lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity
+				vars.initial_capacity_percent_used = 0
+				vars.usedAkku = true
+				--print("3:"..vars.lastUsedCapacity)
 			else
-				i = #vars.Akkus + 1
-				vars.Akkus[i] = {}
-				vars.Akkus[i].ID = drawVal.batID_sens
-				vars.Akkus[i].Name = ""
-				vars.Akkus[i].Cycl = 0
-				vars.Akkus[i].Ah = 0
-				vars.Akkus[i].lastVoltage = 0
-				vars.Akkus[i].usedCapacity = 0
-				vars.Akkus[i].batC = 0
-				lastUsedCapacity = 0
-				capacity = 0
-				cell_count = 0
-				AkkuNeu = true	
+				vars.lastUsedCapacity = 0
 			end
-			
-			-- C-Rate von Rfid
-			sensor = system.getSensorValueByID(vars.batC_sens[1], vars.batC_sens[2])
-			if (sensor and sensor.valid) then 
-				drawVal.batC_sens = sensor.value 
-			end
-				
-			-- Kapazität von Rfid
-			sensor = system.getSensorValueByID(vars.batCap_sens[1], vars.batCap_sens[2])
-			if (sensor and sensor.valid) then
-				if sensor.value > 0 then capacity = sensor.value end
-			end	
-			
-			-- Zellenzahl von Rfid
-			sensor = system.getSensorValueByID(vars.batCells_sens[1], vars.batCells_sens[2])
-			if (sensor and sensor.valid) then
-				if sensor.value > 0 then cell_count = sensor.value end
-			end
-			
-			if AkkuNeu then 
-				vars.Akkus[i].iCells = cell_count
-				vars.Akkus[i].Capacity = capacity
-				vars.Akkus[i].batC = drawVal.batC_sens
-				saveAkkus()
-				AkkuNeu = false
-			end
-			vars.initial_voltage_measured = false
-		end
-	end	
-	if RfID == -1 then
-		drawVal.batID_sens = -2
-		if system.getInputsVal(vars.akkuSw) == 1 and vars.AkkusID[vars.Akku2ID] then 
-			capacity = vars.Akkus[vars.AkkusID[vars.Akku2ID]].Capacity
-			cell_count = vars.Akkus[vars.AkkusID[vars.Akku2ID]].iCells
-			drawVal.batC_sens = vars.Akkus[vars.AkkusID[vars.Akku2ID]].batC
-			lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.Akku2ID]].usedCapacity
-			drawVal.batID_sens = vars.Akku2ID
-		elseif vars.AkkusID[vars.Akku1ID] then 
-			capacity = vars.Akkus[vars.AkkusID[vars.Akku1ID]].Capacity
-			cell_count = vars.Akkus[vars.AkkusID[vars.Akku1ID]].iCells
-			drawVal.batC_sens = vars.Akkus[vars.AkkusID[vars.Akku1ID]].batC
-			lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.Akku1ID]].usedCapacity
-			drawVal.batID_sens = vars.Akku1ID
 		end
 	end
-	if capacity > 0 then  dbdis_capacity = capacity end  --dbdis_capacity wird in CalCa-Elec verwendet
-			
+end
+
 	
-	-- Read Sensor Parameter Voltage 
-	sensor = system.getSensorValueByID(vars.battery_voltage_sens[1], vars.battery_voltage_sens[2])
-	if(sensor and sensor.valid ) then
-		battery_voltage = sensor.value
+	-- if vars.initial_capacity_percent_used == 0 then
+		-- if vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity == 0 then 
+			-- vars.initial_voltage_measured = false
+			-- print("batIDchanged batID:"..vars.batID)
+		-- end	
+		-- vars.lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity
+		-- print("batIDchanged LUC:"..vars.lastUsedCapacity)
+	-- else
+		-- if vars.usedAkku and vars.lastUsedCapacity == vars.resetusedcapacity and vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity > 0 then
+			-- vars.initial_capacity_percent_used = 0
+			-- vars.lastUsedCapacity = vars.Akkus[vars.AkkusID[vars.batID]].usedCapacity + vars.resetusedcapacity
+			-- print("batIDchanged RUC:"..vars.resetusedcapacity)
+			-- vars.resetusedcapacity = 0--vars.Value.used_capacity_sens
+		-- end
+	-- end
+
+ 
+local function accuvalues()
+	local AkkuNeu = false
+	vars.RfID = vars.Value.batID_sens
+	vars.batID = vars.Value.batID_sens
+	if vars.AkkusID[vars.batID] then 
+		batIDchanged()
+	else
+		i = #vars.Akkus + 1
+		vars.Akkus[i] = {}
+		vars.Akkus[i].ID = vars.batID
+		vars.Akkus[i].Name = ""
+		vars.Akkus[i].Cycl = 0
+		vars.Akkus[i].Ah = 0
+		vars.Akkus[i].lastVoltage = 0
+		vars.Akkus[i].usedCapacity = 0
+		vars.Akkus[i].batC = 0
+		vars.lastUsedCapacity = 0
+		vars.capacity = 0
+		vars.cell_count = 0
+		vars.batC = 0
+		AkkuNeu = true	
+	end
+		
+	-- C-Rate von Rfid
+	if vars.Value.batC_sens and vars.Value.batC_sens > 0 then vars.batC = vars.Value.batC_sens end
+		
+	-- Kapazität von Rfid
+	if vars.Value.batCap_sens and vars.Value.batCap_sens > 0 then vars.capacity = vars.Value.batCap_sens end
+	
+	-- Zellenzahl von Rfid
+	if vars.Value.batCells_sens and vars.Value.batCells_sens > 0 then vars.cell_count = vars.Value.batCells_sens end
+	
+	if AkkuNeu then 
+		vars.Akkus[i].iCells = vars.cell_count
+		vars.Akkus[i].Capacity = vars.capacity
+		vars.Akkus[i].batC = vars.batC
+		saveAkkus()
+		AkkuNeu = false
+	end
+	dbdis_capacity = vars.capacity
+end
+
+	--Read Sensor Parameter Voltage 
+local function battery_voltage_sens()
+	local initial_cell_voltage
+	if vars.Value.battery_voltage_sens then
 	-- guess used capacity from voltage if we started with partially discharged battery 
 		if (vars.initial_voltage_measured == false) then
-			if ( battery_voltage / cell_count) > 1.1  then
+			if ( vars.Value.battery_voltage_sens / vars.cell_count) > 1.1  then
 				vars.initial_voltage_measured = true
-				vars.initial_cell_voltage = battery_voltage / cell_count
-				vars.initial_capacity_percent_used = get_capacity_percent_used()
-				if vars.initial_cell_voltage <= AkkuFull and lastUsedCapacity > 0 then 
-					vars.oldAkku = 1 
-				else
-					vars.oldAkku = 0
+				next_voltage_alarm = tickTime + 3
+				iVoltageAlarm = 0
+				initial_cell_voltage = vars.Value.battery_voltage_sens / vars.cell_count
+				if initial_cell_voltage < AkkuFull then
+					vars.AkkuwasFull = false
+				else 
+					vars.AkkuwasFull = true
 				end
-			end    
+				if vars.AkkuwasFull or (not vars.AkkuwasFull and vars.lastUsedCapacity == 0) then
+					vars.initial_capacity_percent_used = get_capacity_percent_used(initial_cell_voltage)
+					system.messageBox("Init. used cap.:"..string.format("%.fmAh",vars.initial_capacity_percent_used*vars.capacity/100) ,5)
+					if vars.capacity > 0 then 
+						 vars.initial_capacity_percent_used = vars.initial_capacity_percent_used - (vars.Value.used_capacity_sens-vars.resetusedcapacity)/vars.capacity*100
+					end
+					--print("4:"..vars.ICPUsaved)
+					--print("5:"..UCPS)
+					vars.lastUsedCapacity = 0
+					vars.usedAkku = false
+					--print("UCS 6:"..vars.Value.used_capacity_sens)
+				end
+			else
+				vars.initial_capacity_percent_used = 0
+			end  
 		end        
 		
 		-- calculate Min/Max Sensor 1
-		if ( battery_voltage < vars.minvtg and (battery_voltage / cell_count) > 1.1 ) then vars.minvtg = battery_voltage end
-		if battery_voltage > vars.maxvtg then vars.maxvtg = battery_voltage end
+		if vars.Value.battery_voltage_sens < vars.minvtg and vars.initial_voltage_measured then vars.minvtg = vars.Value.battery_voltage_sens end
+		--if vars.Value.battery_voltage_sens > vars.maxvtg then vars.maxvtg = vars.Value.battery_voltage_sens end
 		
-		if newTime >= (last_averaging_time + 1000) then          -- one second period, newTime set from FlightTime()
-			battery_voltage_average = average(battery_voltage)   -- average voltages over n samples
+		if newTime >= (last_averaging_time + 400) then          -- one second period (1000), newTime set from FlightTime()
+			vars.battery_voltage_average = average(vars.Value.battery_voltage_sens)   -- average voltages over n samples
 			last_averaging_time = newTime
 		end
 		
-		if ((battery_voltage_average / cell_count) <= voltage_alarm_dec_thresh and vars.voltage_alarm_voice ~= "..." and next_voltage_alarm < tickTime and iVoltageAlarm < imaxAlarm ) then
+		
+		if vars.initial_voltage_measured and (vars.battery_voltage_average / vars.cell_count) <= vars.config.voltage_alarm_thresh / 100 and vars.config.voltage_alarm_voice ~= "..." and next_voltage_alarm < tickTime and iVoltageAlarm < imaxVoltAlarm  then
 			system.messageBox(vars.trans.voltWarn,2)
-			system.playFile(vars.voltage_alarm_voice,AUDIO_QUEUE)
+			system.playFile(vars.config.voltage_alarm_voice,AUDIO_QUEUE)
 			iVoltageAlarm = iVoltageAlarm + 1
 			next_voltage_alarm = tickTime + 5 -- battery voltage alarm every 4 second 
 		end  
 		
 		if(anVoltGo == 1 and tickTime >= next_voltage_announcement) then
-			system.playNumber(battery_voltage, 1, "V", "U Battery")
+			system.playNumber(vars.Value.battery_voltage_sens / vars.cell_count, 1, "V", "U Battery")
 			next_voltage_announcement = tickTime + 10 -- say battery voltage every 10 seconds
 		end
 	else
-		battery_voltage = 0
-		vars.initial_voltage_measured = true
-		if vars.battery_voltage_sens[2] ~= 0 then 
-			battery_voltage_average = 0
-			vars.initial_voltage_measured = false
-		end
+		vars.battery_voltage_average = 0
+		vars.initial_voltage_measured = false
 	end
-	
-	
-	
-	-- Read remaining fuel percent
-	sensor = system.getSensorValueByID(vars.remaining_fuel_percent_sens[1], vars.remaining_fuel_percent_sens[2])
-	if(sensor and sensor.valid) then
-		remaining_fuel_percent = sensor.value
-	else
-		if vars.remaining_fuel_percent_sens[2] ~= 0 then 
-			remaining_fuel_percent = 0 
-		else
-			if Calca_dispGas then 
-				remaining_fuel_percent = Calca_dispGas
-				vars.tank_volume = Calca_selTank
-				vars.capacity_alarm_thresh = Calca_sgBingo
-			else remaining_fuel_percent = -1 
-			end
-		end
-	end
-	                    
-	-- Read Sensor Parameter Used Capacity
-	sensor = system.getSensorValueByID(vars.used_capacity_sens[1], vars.used_capacity_sens[2])
-	if(sensor and sensor.valid) then 
-		used_capacity = sensor.value
-
-		if ( vars.initial_voltage_measured == true ) then
-			remaining_capacity_percent = math.floor((((capacity - used_capacity - (vars.oldAkku * lastUsedCapacity)) * 100) / capacity ) - (vars.initial_capacity_percent_used * math.abs(vars.oldAkku -1)))
-			if remaining_capacity_percent < 0 then remaining_capacity_percent = 0 end
-		end
+ end
                  
-		-- Set max/min percentage to 99/0 for drawing
-		if( remaining_capacity_percent > 100 ) then remaining_capacity_percent = 100 end
-		if( remaining_capacity_percent < 0 ) then remaining_capacity_percent = 0 end
-	else
-		if vars.used_capacity_sens[2] ~= 0 then
-			if used_capacity == -1 then used_capacity = 0 end 
-		else
-			if vars.used_capacity_sens[2] == 0 and Calca_dispFuel then 
-					if capacity <= 1 then capacity = Calca_capacity end
-					used_capacity = capacity * (1 - Calca_dispFuel / 100 )
-					remaining_capacity_percent = Calca_dispFuel
-					vars.capacity_alarm_thresh = Calca_sBingo 
-					calcaApp = true
-			else 
-				used_capacity = -1 
-				calcaApp = false
+
+  
+function calcfunc.status_sens()
+	if Global_TurbineState and  Global_TurbineState ~= "" then  
+		vars.Value.status_sens = Global_TurbineState 
+	elseif not vars.Value.status_sens then 
+		vars.Value.status_sens = "No Status"
+	end
+end
+
+function calcfunc.status2_sens()
+	if Global_TurbineState2 and Global_TurbineState2 ~= "" then  
+		vars.Value.status2_sens = Global_TurbineState2 
+	elseif not vars.Value.status2_sens  then 
+		vars.Value.status2_sens = "No Status"
+	end
+end
+	
+
+local function loop()
+	local temp
+	local itemp
+	local calcaApptemp
+	
+	resetSw_val = system.getInputsVal(vars.switches.resSw)
+	engineOffSw_val = system.getInputsVal(vars.switches.engineOffSw)
+	tickTime = system.getTime()
+	newTime = system.getTimeCounter()
+
+	-- Rx values:
+	txtelemetry = system.getTxTelemetry()
+	for i,RxTyp in ipairs(RxTypen) do
+		vars.Rx[RxTyp].percent = txtelemetry[RxTyp.."Percent"] 
+		
+		-- if vars.switches.engineSw then vars.Rx.rx1.percent = system.getInputsVal(vars.switches.engineSw) * 100 end ----------------- zum Testen Auskommentierung aufheben!!!!!!!!!!!!!!!!!!!
+		
+		if not vars.Rx[RxTyp].initial then
+			if vars.Rx[RxTyp].percent > 99.0 then
+				if not vars.receiverOn then
+					itemp = vars.Rx[RxTyp].percent
+					calcaApptemp = calcaApp
+					init()
+					vars.Rx[RxTyp].percent = itemp
+					vars.receiverOn = true
+					if calcaApptemp and not vars.senslbl.battery_voltage_sens then 
+						vars.AkkuwasFull = true
+						vars.usedAkku = false
+					end
+				end		
+				vars.Rx[RxTyp].initial = true
 			end
+		else
+			vars.Rx[RxTyp].voltage = txtelemetry[RxTyp.."Voltage"]
+			vars.Rx[RxTyp].a1 = txtelemetry.RSSI[i*2-1]
+			vars.Rx[RxTyp].a2 = txtelemetry.RSSI[i*2]
+			if vars.Rx[RxTyp].voltage > 0.0 and vars.Rx[RxTyp].voltage < vars.Rx[RxTyp].minvoltage then vars.Rx[RxTyp].minvoltage = vars.Rx[RxTyp].voltage end
+			if vars.Rx[RxTyp].percent > 0.0 and vars.Rx[RxTyp].percent < vars.Rx[RxTyp].minpercent then vars.Rx[RxTyp].minpercent = vars.Rx[RxTyp].percent end
+			if vars.Rx[RxTyp].a1 > 0 and vars.Rx[RxTyp].a1 < vars.Rx[RxTyp].mina1 then vars.Rx[RxTyp].mina1 = vars.Rx[RxTyp].a1 end
+			if vars.Rx[RxTyp].a2 > 0 and vars.Rx[RxTyp].a2 < vars.Rx[RxTyp].mina2 then vars.Rx[RxTyp].mina2 = vars.Rx[RxTyp].a2 end
 		end
+	end 
+	
+	if vars.Rx.rx1.percent < 1 and vars.Rx.rx2.percent < 1 and vars.Rx.rxB.percent < 1 then -- Empfänger aus
+		if vars.receiverOn then 
+			if  vars.switches.timeSw ~= nil and timeSw_val == 1 and vars.config.timeToCount > 0 and vars.flightTime > vars.config.timeToCount * 1000 then  --Empfänger aus während Stoppuhr läuft
+				if not vars.counttheFlight then 
+					vars.totalCount = vars.totalCount + 1 
+				end
+				vars.totalFlighttime = vars.totalFlighttime + ((vars.flightTime - vars.lastFlightTime) / 1000)
+				system.pSave("todayCount", vars.todayCount)
+				system.pSave("lastDay", math.floor(system.getTime() / 86400))			
+				saveFlights() 
+				writeLog()
+				vars.counted = false
+			elseif vars.counttheFlight then 
+				vars.counted = false 
+				writeLog()
+			end
+	
+			vars.Rx.rx1.initial = false
+			vars.Rx.rx2.initial = false
+			vars.Rx.rxB.initial = false
+			vars.RfID = 0
+			vars.receiverOn = false
+		end
+	end
+	
+	temp = system.getInputsVal(vars.switches.anVoltSw)
+	if anVoltGo ~= temp then
+		anVoltGo = temp
+		next_voltage_announcement = tickTime
+	end
+	
+	temp = system.getInputsVal(vars.switches.anCapaSw)
+	if anCapaGo ~= temp then
+		anCapaGo = temp
+		next_capacity_announcement = tickTime
+	end
+	
+	temp = system.getInputsVal(vars.switches.anCapaValSw)
+	if anCapaValGo ~= temp then
+		anCapaValGo = temp
+		next_value_announcement = tickTime
+	end
+	
+	if vars.config.gyChannel ~= 17 then gyro_channel_value = system.getInputs(vars.config.gyro_output)
+	else gyro_channel_value = 17
 	end	
 	
-	if ((remaining_capacity_percent > 0 and remaining_capacity_percent <= vars.capacity_alarm_thresh) or (remaining_fuel_percent > 0 and remaining_fuel_percent <= vars.capacity_alarm_thresh))
-		and vars.capacity_alarm_voice ~= "..." and next_capacity_alarm < tickTime and iKapAlarm < imaxAlarm then
-			system.messageBox(vars.trans.capaWarn,2)
-			system.playFile(vars.capacity_alarm_voice,AUDIO_QUEUE)
-			iKapAlarm = iKapAlarm + 1
-			next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
-	end
-	
-	if anCapaGo == 1 and tickTime >= next_capacity_announcement then
-		if remaining_fuel_percent > 0  then
-			system.playNumber(remaining_fuel_percent, 0, "%")
-			next_capacity_announcement = tickTime + 10 -- say fuel percentage every 10 seconds
-		elseif remaining_capacity_percent > 0 then
-			system.playNumber(remaining_capacity_percent, 0, "%")
-			next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
-		end	
-	end
-	
-	if anCapaValGo == 1 and tickTime >= next_value_announcement then
-		if remaining_fuel_percent > 0  then
-			system.playNumber(remaining_fuel_percent * vars.tank_volume / 100, 0, "ml")
-			next_value_announcement = tickTime + 10 -- say fuel value every 10 seconds
-		elseif remaining_capacity_percent > 0 then
-			system.playNumber(remaining_capacity_percent * capacity / 100, 0, "mAh")
-			next_value_announcement = tickTime + 10 -- say battery value every 10 seconds
-		end	
-	end
-	
-
-	for i, sens in ipairs(MinMaxlbl) do
-		sensor = system.getSensorValueByID(vars[sens][1], vars[sens][2])
-		if (sensor and sensor.valid) then
-			drawVal[sens] = sensor.value
-			if vars.drawVal[sens].measured == false then
-				if  drawVal[sens] > 1 then 
-					vars.drawVal[sens].measured = true
-					vars.drawVal[sens].min = 999.9
+	-- to be in sync with a system timer, do not use CLR key 
+	if (resetSw_val == 1) then
+		if vars.counttheFlight then 
+			vars.counted = false 
+			if vars.receiverOn then writeLog() end
+		elseif vars.receiverOn and vars.config.timeToCount > 0 and vars.flightTime > vars.config.timeToCount * 1000 then
+			if form.question("Do you want to save?","Flight not saved yet!","",0,false, 0) == 1 then 
+				if not vars.counttheFlight then 
+					vars.totalCount = vars.totalCount + 1 
 				end
-			else
-				-- calculate Min/Max Sensor
-				if drawVal[sens] < vars.drawVal[sens].min then vars.drawVal[sens].min = drawVal[sens] end
-				if drawVal[sens] > vars.drawVal[sens].max then vars.drawVal[sens].max = drawVal[sens] end
+				vars.totalFlighttime = vars.totalFlighttime + ((vars.flightTime - vars.lastFlightTime) / 1000)
+				system.pSave("todayCount", vars.todayCount)
+				system.pSave("lastDay", math.floor(system.getTime() / 86400))			
+				saveFlights()
+				writeLog()
+				vars.counted = false
+			end	
+		end
+		setminmax()
+		if vars.receiverOn then 
+			--print("7:receiverOn")
+			vars.RfID = -2   --reset switch
+		end
+		--Akkudaten neu laden:
+		if vars.AkkusID[vars.batID] then
+			batIDchanged()
+		end
+		vars.lastTime = newTime
+		vars.lastEngineTime = newTime - vars.engineTime
+	end	
+ 
+	--Akkuwerte
+	vars.AkkuSW = system.getInputsVal(vars.switches.akkuSw)
+	if vars.RfID == -1 then
+		if vars.AkkuSW ~= vars.SWold_Akku then
+			vars.SWold_Akku = vars.AkkuSW
+			if  vars.AkkuSW == 1 and vars.AkkusID[vars.config.Akku2ID] then 
+				newbatID = vars.config.Akku2ID
+			elseif vars.AkkusID[vars.config.Akku1ID] then 
+				newbatID = vars.config.Akku1ID
+			elseif vars.AkkusID[vars.config.Akku2ID] then 
+				newbatID = vars.config.Akku2ID
+			end		
+			if newbatID > 0 and newbatID ~=vars.batID then
+				vars.batID = newbatID
+				batIDchanged()
+			end	
+		end
+	end
+		
+		-- kein Spritsensor zugeordnet
+	if not vars.senslbl.remaining_fuel_percent_sens then
+		if Calca_dispGas then 
+			vars.Value.remaining_fuel_percent_sens = Calca_dispGas
+			-- if vars.config.tank_volume <= 0 then 
+				-- vars.config.tank_volume = Calca_selTank 
+			-- end
+		end
+	end
+	
+		-- kein Kapazitätssensor zugeordnet
+	if not vars.senslbl.used_capacity_sens then
+		if Calca_dispFuel then 
+			if vars.capacity <= 0 then 
+				vars.capacity = Calca_capacity
 			end
+			vars.Value.used_capacity_sens = vars.capacity * (1 - Calca_dispFuel / 100 )
+			--vars.remaining_capacity_percent = Calca_dispFuel
+			--vars.config.capacity_alarm_thresh = Calca_sBingo 
+			calcaApp = true
+		else 
+			--vars.Value.used_capacity_sens = -1 
+			calcaApp = false
+		end
+	end
+	
+	
+	if vars.receiverOn then
+	
+		FlightTime()
+	
+		--Sensorwerte abfragen
+		for senslbl, sens in pairs(vars.senslbl) do
+			sensor = system.getSensorValueByID(sens[1], sens[2])
+			if (sensor and sensor.valid) then
+				vars.Value[senslbl] = sensor.value
+			else
+				vars.Value[senslbl] = nil
+			end
+		end
+	 	
+		--accuvalues from RFID
+		if vars.Value.batID_sens and vars.Value.batID_sens > 0 then
+			if vars.RfID ~= vars.Value.batID_sens then accuvalues() end
 		else
-			if vars[sens][2] ~= 0 then drawVal[sens] = 0 end
+			if vars.RfID < 0 then  -- comes from reset switch (zuerst RfID abfragen und dann erst den Akkuschalter abfragen um umschalten zw. den Akkus zu vermeiden)
+				vars.RfID = -1
+			else
+				vars.RfID = 0
+			end
+		end
+		
+	
+		for senslbl, sens in pairs(vars.senslbl) do	
+			if MinMaxlbl[senslbl] then
+				if not vars.Value[senslbl] then
+					vars.Value[senslbl] = 0
+				else
+					if not vars.drawVal[senslbl].measured then
+						if  vars.Value[senslbl] > 1 then 
+							vars.drawVal[senslbl].measured = true
+							vars.drawVal[senslbl].min = 999.9
+						end
+					else
+						-- calculate Min/Max Sensor
+						if vars.Value[senslbl] < vars.drawVal[senslbl].min then vars.drawVal[senslbl].min = vars.Value[senslbl] end
+						if vars.Value[senslbl] > vars.drawVal[senslbl].max then vars.drawVal[senslbl].max = vars.Value[senslbl] end
+					end
+				end
+			elseif Valuelbl[senslbl] then
+				if not vars.Value[senslbl] then
+					vars.Value[senslbl] = 0
+				end
+			elseif calcfunc[senslbl] then
+				calcfunc[senslbl]()
+			end
+		end
+		
+		if vars.senslbl.battery_voltage_sens then
+			battery_voltage_sens()
+		else-- kein Spannungssensor zugeordnet
+			vars.Value.battery_voltage_sens = 0
+			vars.initial_voltage_measured = true 	
+		end	
+		
+		--if reset then
+			if vars.Value.used_capacity_sens < vars.resetusedcapacity  then  vars.resetusedcapacity = vars.Value.used_capacity_sens end
+			-- reset = false
+		--end
+		
+		--vars.remaining_capacity_percent alarm
+		if vars.remaining_capacity_percent > 0 and next_capacity_alarm < tickTime then
+			if imainAlarm < imaxMainAlarm and vars.remaining_capacity_percent <= vars.config.capacity_alarm_thresh then
+				if vars.config.capacity_alarm_voice == "..." then
+					system.playNumber(vars.remaining_capacity_percent, 0, "%")
+				else
+					system.playFile(vars.config.capacity_alarm_voice,AUDIO_QUEUE)
+				end
+				system.messageBox(vars.trans.capaWarn,2)
+				imainAlarm = imainAlarm + 1
+				if imainAlarm == imaxMainAlarm then ipreAlarm = imaxPreAlarm end
+				next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
+			elseif ipreAlarm < imaxPreAlarm and vars.remaining_capacity_percent <= vars.config.capacity_alarm_thresh2 then
+				if vars.config.capacity_alarm_voice2 == "..." then
+					system.playNumber(vars.remaining_capacity_percent, 0, "%")
+				else
+					system.playFile(vars.config.capacity_alarm_voice2,AUDIO_QUEUE)
+				end
+				system.messageBox(vars.trans.capaWarn,2)
+				ipreAlarm = ipreAlarm + 1
+				next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
+			end
+		end
+		
+		--remaining_fuel_percent_sens alarm
+		if vars.Value.remaining_fuel_percent_sens > 0 and next_capacity_alarm < tickTime then
+			if imainAlarm < imaxMainAlarm and vars.Value.remaining_fuel_percent_sens <= vars.config.capacity_alarm_thresh then
+				if vars.config.capacity_alarm_voice == "..." then
+					system.playNumber(vars.Value.remaining_fuel_percent_sens, 0, "%")
+				else
+					system.playFile(vars.config.capacity_alarm_voice,AUDIO_QUEUE)
+				end
+				system.messageBox(vars.trans.capaWarn,2)
+				imainAlarm = imainAlarm + 1
+				if imainAlarm == imaxMainAlarm then ipreAlarm = imaxPreAlarm end
+				next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
+			elseif ipreAlarm < imaxPreAlarm and vars.Value.remaining_fuel_percent_sens <= vars.config.capacity_alarm_thresh2 then
+				if vars.config.capacity_alarm_voice2 == "..." then
+					system.playNumber(vars.Value.remaining_fuel_percent_sens, 0, "%")
+				else
+					system.playFile(vars.config.capacity_alarm_voice2,AUDIO_QUEUE)
+				end
+				system.messageBox(vars.trans.capaWarn,2)
+				ipreAlarm = ipreAlarm + 1
+				next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
+			end
+		end
+		
+		if anCapaGo == 1 and tickTime >= next_capacity_announcement then
+			if vars.senslbl.remaining_fuel_percent_sens or Calca_dispGas  then
+				system.playNumber(vars.Value.remaining_fuel_percent_sens, 0, "%")
+				next_capacity_announcement = tickTime + 10 -- say fuel percentage every 10 seconds
+			else
+				system.playNumber(vars.remaining_capacity_percent, 0, "%")
+				next_capacity_announcement = tickTime + 10 -- say battery percentage every 10 seconds
+			end	
+		end
+		
+		if anCapaValGo == 1 and tickTime >= next_value_announcement then
+			if vars.senslbl.remaining_fuel_percent_sens or Calca_dispGas  then
+				system.playNumber(vars.Value.remaining_fuel_percent_sens * vars.config.tank_volume / 100, 0, "ml")
+				next_value_announcement = tickTime + 10 -- say fuel value every 10 seconds
+			else
+				system.playNumber(vars.remaining_capacity_percent * vars.capacity / 100, 0, "mAh")
+				next_value_announcement = tickTime + 10 -- say battery value every 10 seconds
+			end	
 		end
 	end
-	
-	for i, sens in ipairs({"UsedCap1_sens", "UsedCap2_sens", "OverI_sens"}) do
-		sensor = system.getSensorValueByID(vars[sens][1], vars[sens][2])
-		if (sensor and sensor.valid) then
-			drawVal[sens] = sensor.value
-		else
-			if vars[sens][2] ~= 0 then drawVal[sens] = 0 end
-		end
-	end
-
-	
-	-- Read Status1 Parameter 
-	sensor = system.getSensorValueByID(vars.status_sens[1], vars.status_sens[2])
-	if(sensor and sensor.valid) then
-		if Global_TurbineState ~= "" then  status1 = Global_TurbineState
-			else status1 = sensor.value
-		end
-	end
-	
-	-- Read Status2 Parameter 
-	sensor = system.getSensorValueByID(vars.status2_sens[1], vars.status2_sens[2])
-	if(sensor and sensor.valid) then
-		if Global_TurbineState2 ~= "" then  status2 = Global_TurbineState2
-			else status2 = sensor.value
-		end
-	end
-	
-	
-	
 	--print(system.getCPU())
 end --loop
 

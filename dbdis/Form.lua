@@ -3,6 +3,7 @@ local device_id_list = {}
 local sensor_lists = {}
 local deviceIndex = 0
 local show
+local switchItem
 local output_list = { "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10", "O11", "O12",
 							"O13", "O14", "O15", "O16", "OO"}
 
@@ -29,9 +30,8 @@ local function make_lists (deviceId)
 end
 
 local function check_other_device(sens, deviceId)
-	local i
-	show = true
-	if ( sens[1] ~= deviceId and sens[2] ~= 0 ) then	-- sensor selectet from another device 
+	
+	if sens[1] ~= deviceId and sens[2] ~= 0  then	-- sensor selectet from another device 
 		for i in next, device_id_list do
 			if ( sens[1] == device_id_list[i] ) then	-- this other device is still present
 				show = false
@@ -41,21 +41,72 @@ local function check_other_device(sens, deviceId)
 end
 
 
-local function setup(vars, Version, senslbls)
-	local i,j
-	local sensCat = {}
-	local senslbl
 
+local function setup(vars, senslbls)
+	local switch ={}
+	local temp
+	local dateinamen = {}
+	local confignames = {["_config.jsn"]=true}
+	
+	
 	local function saveFlights()
 		local file = io.open("Apps/"..vars.appName.."/"..vars.model..".txt", "w+")
 		if file then
-		  io.write(file, vars.totalCount.."\n")
-		  io.write(file, vars.totalFlighttime.."\n")
-		  io.close(file)
+			io.write(file, vars.totalCount.."\n")
+			io.write(file, vars.totalFlighttime.."\n")
+			io.close(file)
 		end
 		collectgarbage()
 	end 
-  
+
+	local function configChanged(configName, value)
+		vars.config[configName] = value
+		system.pSave(configName, value)
+		form.setButton(1, "save",ENABLED)
+		vars.changedConfig = 1
+		collectgarbage()
+	end
+	
+	
+	local function switchChanged(switchName, value)
+		local Invert = 1.0
+		local swInfo = system.getSwitchInfo(value)
+		local swTyp = string.sub(swInfo.label,1,1)
+		if swInfo.assigned then
+			if string.sub(swInfo.mode,-1,-1) == "I" then Invert = -1.0 end
+			if swInfo.value == Invert or swTyp == "L" or swTyp =="M"  then
+				vars.switches[switchName] = value
+				system.pSave(switchName, value)
+				form.setButton(1, "save",ENABLED)
+				vars.changedConfig = 1
+				vars.switchInfo[switchName] = {}
+				vars.switchInfo[switchName].name = swInfo.label
+				vars.switchInfo[switchName].mode = swInfo.mode
+				if swTyp == "L" or swTyp =="M" then
+					vars.switchInfo[switchName].activeOn = 0
+				else
+					vars.switchInfo[switchName].activeOn = system.getInputs(string.upper(swInfo.label))
+				end
+			else  					
+				system.messageBox(vars.trans.switchError, 3)
+				if vars.switches[switchName] then 
+					form.setValue(switch[switchName],vars.switches[switchName])
+				else
+					form.setValue(switch[switchName],nil)
+				end
+			end
+		else
+			if vars.switchInfo[switchName] then
+				vars.switches[switchName] = nil
+				vars.switchInfo[switchName] = nil
+				form.setButton(1, "save",ENABLED)
+				system.pSave(switchName, nil)
+				vars.changedConfig = 1
+			end	
+		end
+		collectgarbage()
+	end
+
 
 	make_lists(vars.deviceId)
 
@@ -89,25 +140,39 @@ local function setup(vars, Version, senslbls)
 	if ( device_id_list and deviceIndex > 0 ) then
 		form.addRow(2)
 		form.addLabel({label = vars.trans["sensCat"]})
-		form.addSelectbox(senslbls.catName,vars.catsel,true, function(value)
+		form.addSelectbox(vars.catName,vars.catsel,true, function(value)
 			vars.catsel = value
 			system.pSave("catsel", vars.catsel)
 			form.reinit()
 		end)
 		
-		for i, sensCat in ipairs(senslbls.cat) do
-			if sensCat == senslbls.cat[vars.catsel-1] or vars.catsel == 1 then
+		for i, sensCat in ipairs(vars.cat) do
+			if sensCat == vars.cat[vars.catsel-1] or vars.catsel == 1 then
 				form.addSpacer(318,7)
 				for j, senslbl in pairs(senslbls[sensCat]) do
 					form.addRow(2) 	
 					form.addLabel({label = vars.trans[senslbl]})
-					check_other_device(vars[senslbl], vars.deviceId)
-					form.addSelectbox(sensor_lists[deviceIndex], vars[senslbl][2], true,
+					show = true	
+					if vars.senslbl[senslbl] then
+						check_other_device(vars.senslbl[senslbl], vars.deviceId)
+						temp = vars.senslbl[senslbl][2]
+					else
+						temp = 0
+					end
+					
+					form.addSelectbox(sensor_lists[deviceIndex], temp, true,
 									function (value)
-										if sensor_lists[deviceIndex][value] == "..." then value = 0 end
-										vars[senslbl][1] = vars.deviceId
-										vars[senslbl][2] = value
-										system.pSave(senslbl, vars[senslbl])
+										vars.senslbl[senslbl] = {}
+										if sensor_lists[deviceIndex][value] == "..." then 
+											value = 0
+											vars.senslbl[senslbl] = nil
+										else 
+											vars.senslbl[senslbl][1] = vars.deviceId
+											vars.senslbl[senslbl][2] = value									
+										end
+										system.pSave(senslbl, vars.senslbl[senslbl])
+										vars.changeSens = 1
+										form.setButton(1, "save",ENABLED)
 									end,
 									{enabled=show, visible=show} )	
 				end
@@ -116,7 +181,7 @@ local function setup(vars, Version, senslbls)
 		end
 										
 	end
-	
+
 	form.addSpacer(318,7)
 	
 	form.addRow(1)
@@ -124,171 +189,163 @@ local function setup(vars, Version, senslbls)
 
 	form.addRow(2) -- Switch for % announcement
 	form.addLabel({label=vars.trans.anCapaSw, width=220})
-	form.addInputbox(vars.anCapaSw,true,
+	switch.anCapaSw = form.addInputbox(vars.switches.anCapaSw,false,
 						function (value)
-							vars.anCapaSw = value
-							system.pSave("anCapaSw", vars.anCapaSw)
+							switchChanged("anCapaSw", value)
 						end )
 						
 	form.addRow(2) -- Switch for value announcement
 	form.addLabel({label=vars.trans.anValueSw, width=220})
-	form.addInputbox(vars.anCapaValSw,true,
+	switch.anCapaValSw = form.addInputbox(vars.switches.anCapaValSw,false,
 						function (value)
-							vars.anCapaValSw = value
-							system.pSave("anCapaValSw", vars.anCapaValSw)
+							switchChanged("anCapaValSw", value)
 						end )					
 						
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.anVoltSw, width=220})
-	form.addInputbox(vars.anVoltSw,true,
+	switch.anVoltSw = form.addInputbox(vars.switches.anVoltSw,false,
 						function (value)
-							vars.anVoltSw = value
-							system.pSave("anVoltSw", vars.anVoltSw)
+							switchChanged("anVoltSw", value)
 						end )
         
 	form.addSpacer(318,7)
 
 	form.addRow(1)
-	form.addLabel({label=vars.trans.label3,font=FONT_BOLD})
+	form.addLabel({label=vars.trans.voicefiles,font=FONT_BOLD})
+	
+	form.addRow(2)
+	form.addLabel({label=vars.trans.modelAnnounce, width=220})
+	form.addAudioFilebox(vars.config.modelAnnounceVoice,
+						function (value)
+							configChanged("modelAnnounceVoice", value)
+						end, {width=100} )
 
 	form.addRow(2)
-	form.addLabel({label=vars.trans.voltAlarmVoice, width=140})
-	form.addAudioFilebox(vars.voltage_alarm_voice,
+	form.addLabel({label=vars.trans.voltAlarmVoice, width=220})
+	form.addAudioFilebox(vars.config.voltage_alarm_voice,
 						function (value)
-							vars.voltage_alarm_voice=value
-							system.pSave("voltage_alarm_voice", vars.voltage_alarm_voice)
-						end )
+							configChanged("voltage_alarm_voice", value)
+						end,{width=100} )
         
+
 	form.addRow(2)
-	form.addLabel({label=vars.trans.capaAlarmVoice, width=140})
-	form.addAudioFilebox(vars.capacity_alarm_voice,
+	form.addLabel({label=vars.trans.capaAlarmVoice2, width=220})
+	form.addAudioFilebox(vars.config.capacity_alarm_voice2,
 						function (value)
-							vars.capacity_alarm_voice = value
-							system.pSave("capacity_alarm_voice", vars.capacity_alarm_voice)
-						end )
+							configChanged("capacity_alarm_voice2", value)
+						end,{width=100} )
+						
+	form.addRow(2)
+	form.addLabel({label=vars.trans.capaAlarmVoice, width=220})
+	form.addAudioFilebox(vars.config.capacity_alarm_voice,
+						function (value)
+							configChanged("capacity_alarm_voice", value)
+						end,{width=100} )					
+						
+						
 
 	form.addSpacer(318,7)
 
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label2,font=FONT_BOLD})
 	
-	--if not Calca_dispFuel then   
-		-- form.addRow(2)
-		-- form.addLabel({label=vars.trans.capacitymAh, width=210})
-		-- form.addIntbox(vars.capacity1, 0, 32767, 0, 0, 10,
-							-- function (value)
-								-- vars.capacity1 = value
-								-- system.pSave("capacity1", vars.capacity1)
-							-- end, {label=" mAh"} )
-		
-		-- form.addRow(2)
-		-- form.addLabel({label=vars.trans.capacity2mAh, width=210})
-		-- form.addIntbox(vars.capacity2, 0, 32767, 0, 0, 10,
-							-- function (value)
-								-- vars.capacity2 = value
-								-- system.pSave("capacity2", vars.capacity2)
-							-- end, {label=" mAh"} )
 							
-		form.addRow(2)
-		form.addLabel({label="Akku 1 ID:", width=210})
-		form.addIntbox(vars.Akku1ID, 0, 999, 0, 0, 1,
-							function (value)
-								vars.Akku1ID = value
-								system.pSave("Akku1ID", vars.Akku1ID)
-							end)
-		
-		form.addRow(2)
-		form.addLabel({label="Akku 2 ID:", width=210})
-		form.addIntbox(vars.Akku2ID, 0, 999, 0, 0, 1,
-							function (value)
-								vars.Akku2ID = value
-								system.pSave("Akku2ID", vars.Akku2ID)
-							end)
-							
-							
-							
-		form.addRow(2)
-		form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
-		form.addInputbox(vars.akkuSw,true,
-							function (value)
-				  vars.akkuSw = value
-				  system.pSave("akkuSw", vars.akkuSw)
-							end)
-	--end
+	form.addRow(2)
+	form.addLabel({label="Akku 1 ID:", width=210})
+	form.addIntbox(vars.config.Akku1ID, 0, 999, 0, 0, 1,
+						function (value)
+							configChanged("Akku1ID", value)
+						end)
+	
+	form.addRow(2)
+	form.addLabel({label="Akku 2 ID:", width=210})
+	form.addIntbox(vars.config.Akku2ID, 0, 999, 0, 0, 1,
+						function (value)
+							configChanged("Akku2ID", value)
+						end)
 						
-
-	-- form.addRow(2)
-	-- form.addLabel({label=vars.trans.cellcnt, width=210})
-	-- form.addIntbox(vars.cell_count, 1, 14, 1, 0, 1,
-						-- function (value)
-							-- vars.cell_count = value
-							-- system.pSave("cell_count", vars.cell_count)
-						-- end, {label=" S"} )
+	form.addRow(2)
+	form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
+	switch.akkuSw = form.addInputbox(vars.switches.akkuSw,false,
+						function (value)
+							switchChanged("akkuSw", value)
+						end)
 					
-	if not Calca_dispGas then
+	--if not Calca_dispGas then
 		form.addRow(2)
 		form.addLabel({label=vars.trans.tank_volume, width=210})
-		form.addIntbox(vars.tank_volume, 0, 9900, 0, 0, 10,
+		form.addIntbox(vars.config.tank_volume, 0, 9900, 0, 0, 10,
 							function (value)
-								vars.tank_volume = value
-								system.pSave("tank_volume", vars.tank_volume)
+								dbdis_tank_volume = value
+								configChanged("tank_volume", value)
 							end, {label=" ml"} )
-	end
+	--end
+
+							
+	form.addRow(2)
+	form.addLabel({label=vars.trans.capaAlarmThres2, width=230 })
+	form.addIntbox(vars.config.capacity_alarm_thresh2, 0, 100, 0, 0, 1,
+						function (value)
+							configChanged("capacity_alarm_thresh2", value)
+						end, {label=" %"} )	
 						
-						
-	if not Calca_dispFuel and not Calca_dispGas then 
-		form.addRow(2)
-		form.addLabel({label=vars.trans.capaAlarmThresh, width=210 })
-		form.addIntbox(vars.capacity_alarm_thresh, 0, 100, 0, 0, 1,
-							function (value)
-								vars.capacity_alarm_thresh = value
-								system.pSave("capacity_alarm_thresh", vars.capacity_alarm_thresh)
-							end, {label=" %"} )
-	end
+	form.addRow(2)
+	form.addLabel({label=vars.trans.capaAlarmThresh, width=240 })
+	form.addIntbox(vars.config.capacity_alarm_thresh, 0, 100, 0, 0, 1,
+						function (value)
+							configChanged("capacity_alarm_thresh", value)
+						end, {label=" %"} )					
+
     
 	form.addRow(2)
 	form.addLabel({label=vars.trans.voltAlarmThresh, width=210})
-	form.addIntbox(vars.voltage_alarm_thresh,0,10000,0,2,5,
+	form.addIntbox(vars.config.voltage_alarm_thresh,0,10000,0,2,5,
 						function (value)
-							vars.voltage_alarm_thresh=value
-							system.pSave("voltage_alarm_thresh", vars.voltage_alarm_thresh)
+								configChanged("voltage_alarm_thresh", value)
 						end, {label=" V"} )
 
 	form.addSpacer(318,7)
 
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label4,font=FONT_BOLD})  
-
+	-- Schalter für Flugzeit
 	form.addRow(2)
-	form.addLabel({label=vars.trans.timeSw, width=210})-- Schalter für Flugzeit
-	form.addInputbox(vars.timeSw,true,
+	form.addLabel({label=vars.trans.timeSw, width=210})
+	switch.timeSw = form.addInputbox(vars.switches.timeSw,false,
 						function (value)
-							  vars.timeSw = value
-							  system.pSave("timeSw", vars.timeSw)
+								vars.changeSens = 1
+								switchChanged("timeSw", value)
 						end)
-
+	-- Schalter für Motorlaufzeit
 	form.addRow(2)
-	form.addLabel({label=vars.trans.engineSw, width=210})-- Schalter für Motorlaufzeit
-	form.addInputbox(vars.engineSw,true,
+	form.addLabel({label=vars.trans.engineSw, width=210})
+	switch.engineSw = form.addInputbox(vars.switches.engineSw,false,
 						function (value)
-							vars.engineSw = value
-							system.pSave("engineSw", vars.engineSw)
+							vars.changeSens = 1
+							switchChanged("engineSw", value)
 						end)
-						
+	-- Schalter Motor an
 	form.addRow(2)
-	form.addLabel({label=vars.trans.timeToCount, width=210})-- Zeitdauer für Flugerkennung
-	form.addIntbox(vars.timeToCount, 0, 999, 0, 0, 1, 
+	form.addLabel({label=vars.trans.engineOffSw, width=210})
+	switch.engineOffSw = form.addInputbox(vars.switches.engineOffSw,false,
 						function (value)
-							vars.timeToCount = value
-							system.pSave("timeToCount", vars.timeToCount)
+							vars.changeSens = 1
+							switchChanged("engineOffSw", value)
+						end)					
+	-- Zeitdauer für Flugerkennung					
+	form.addRow(2)
+	form.addLabel({label=vars.trans.timeToCount, width=210})
+	form.addIntbox(vars.config.timeToCount, 0, 999, 0, 0, 1, 
+						function (value)
+							configChanged("timeToCount", value)
 						end, {label=" s"} )
+	-- Resetschalter					
 	form.addRow(2)
 	form.addLabel({label=vars.trans.resSw, width=210})
-	form.addInputbox(vars.resSw,true,
+	switch.resSw = form.addInputbox(vars.switches.resSw,false,
 						function (value)
-							vars.resSw = value
-							system.pSave("resSw", vars.resSw)
+							switchChanged("resSw", value)
 						end )
 						
 
@@ -299,12 +356,10 @@ local function setup(vars, Version, senslbls)
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.channel, width=210})
-	form.addIntbox(vars.gyChannel, 1, 17, 17, 0, 1,
+	form.addIntbox(vars.config.gyChannel, 1, 17, 17, 0, 1,
 						function (value)
-							vars.gyChannel = value
-							vars.gyro_output = output_list[vars.gyChannel]
-							system.pSave("gyChannel", vars.gyChannel)
-							system.pSave("gyro_output", vars.gyro_output)
+							configChanged("gyChannel", value)
+							configChanged("gyro_output", output_list[vars.config.gyChannel])									
 						end )
 
 	form.addSpacer(318,7)
@@ -332,10 +387,28 @@ local function setup(vars, Version, senslbls)
 							vars.totalFlighttime = value * 60
 							saveFlights()
 						end, {label=" min"} )
+						
+	form.addSpacer(320,10)
+
+	
+	dateinamen[1]=""
+	for name, filetype, size in dir("Apps/"..vars.appName) do
+		if filetype == "file" and confignames[string.sub(name,-11,-1)] then table.insert(dateinamen, name) end
+	end
+	table.sort(dateinamen)
+
+	form.addRow(2)
+	form.addLabel({label = vars.trans.loadConfig, width=105})
+	form.addSelectbox(dateinamen,1,false, function(value)
+		vars.configName = dateinamen[value]
+		if vars.configName:len() > 0 then vars.changeSens = 2 end
+		form.setButton(1, vars.configName:len() > 0 and "Load" or 1, vars.configName:len() > 0 and ENABLED or DISABLED)
+	end, {width = 210})						
 
 	form.addRow(1)
-	form.addLabel({label=vars.trans.appName .. " " .. Version .. " ", font=FONT_MINI, alignRight=true})
-    
+	form.addLabel({label=vars.trans.appName .. " " .. vars.Version .. " ", font=FONT_MINI, alignRight=true})
+	
+
 	collectgarbage()
 
 	return (vars)
