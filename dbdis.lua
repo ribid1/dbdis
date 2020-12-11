@@ -124,7 +124,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.26"
+vars.Version = "3.27"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -156,11 +156,11 @@ local function setLanguage()
 	end
 end
 
--- remove unused module
-local function unrequire(module)
-	package.loaded[module] = nil
-	_G[module] = nil
-end
+-- remove unused module -- doesn't work in DS12
+-- local function unrequire(module)
+	-- package.loaded[module] = nil
+	-- _G[module] = nil
+-- end
 
 local function boxvisible()
 	local paired
@@ -532,23 +532,22 @@ local function setupForm(ID)
 	--unrequire(appName.."/Screen")		-- comment out if closeForm not available
 	system.unregisterTelemetry(1)		-- comment out if closeForm not available
 	system.unregisterTelemetry(2)
-  
 	collectgarbage()
 	form.setButton(1, "1", formID == 1 and HIGHLIGHTED or ENABLED)
 	form.setButton(2, "2", formID == 2 and HIGHLIGHTED or ENABLED)
 	form.setButton(3, "3", formID == 3 and HIGHLIGHTED or ENABLED)
 	form.setButton(4, "BAT", formID == 4 and HIGHLIGHTED or ENABLED)
-	if (formID == 1) then				
-		unrequire(vars.appName.."/Screen")
-		unrequire(vars.appName.."/Form2")
-		Form = require (vars.appName.."/Form")
+	if (formID == 1) then	
+	---unrequire(vars.appName.."/Screen")
+		---unrequire(vars.appName.."/Form2")
+		if not Form then Form = require (vars.appName.."/Form") end
 		vars = Form.setup(vars, senslbls) -- return modified data from user		
 	else 
 		-- if not Screen then Screen = require (vars.appName.."/Screen") end
 		-- vars = Screen.init(vars)						
-		unrequire(vars.appName.."/Screen")
-		unrequire(vars.appName.."/Form")
-		Form2 = require (vars.appName.."/Form2")
+		---unrequire(vars.appName.."/Screen")
+		---unrequire(vars.appName.."/Form")
+		if not Form2 then Form2 = require (vars.appName.."/Form2") end
 		if formID == 2 or formID == 3 then
 			changed(page)
 			if checkNewBox[page] then
@@ -609,8 +608,8 @@ local function closeForm()
 	changed(1)
 	changed(2)
 	
-	unrequire(vars.appName.."/Form")
-	unrequire(vars.appName.."/Form2")
+	---unrequire(vars.appName.."/Form")
+	---unrequire(vars.appName.."/Form2")
 	collectgarbage()
 
 	-- register telemetry window again after 500 ms
