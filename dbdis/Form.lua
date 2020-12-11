@@ -3,6 +3,7 @@ local device_id_list = {}
 local sensor_lists = {}
 local deviceIndex = 0
 local show
+local device_label
 local switchItem
 local output_list = { "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10", "O11", "O12",
 							"O13", "O14", "O15", "O16", "OO"}
@@ -16,11 +17,26 @@ local function make_lists (deviceId)
 			if (sensor.param == 0) then	-- new multisensor/device
 				device_label_list[#device_label_list + 1] = sensor.label	-- list presented in sensor select box
 				device_id_list[#device_id_list + 1] = sensor.id				-- to get id from if sensor changed, same numeric indexing
+				
 				if (sensor.id == deviceId) then
 					deviceIndex = #device_id_list
 				end
 				sensor_lists[#sensor_lists + 1] = {}			-- start new param list only containing label and unit as string
 			else															-- subscript is number of param for current multisensor/device
+				device_label = false
+				for i in next, device_id_list do
+					if sensor.id == device_id_list[i] then
+						device_label = true
+					end
+				end
+				if not device_label then 
+					device_label_list[#device_label_list + 1] = string.format("%d",sensor.id)
+					device_id_list[#device_id_list + 1] = sensor.id	
+					if (sensor.id == deviceId) then
+						deviceIndex = #device_id_list
+					end
+					sensor_lists[#sensor_lists + 1] = {}
+				end
 				sensor_lists[#sensor_lists][sensor.param] = sensor.label .. "  " .. sensor.unit	-- list presented in param select box
 				sensor_lists[#sensor_lists][sensor.param + 1] = "..."
 			end
@@ -118,7 +134,7 @@ local function setup(vars, senslbls)
 	form.addLabel({label=vars.trans.label0,font=FONT_BOLD})
 
 	form.addRow(2)
-	form.addLabel({label = vars.trans.labelp0, width=200})
+	form.addLabel({label = vars.trans.labelp0, width=160})
 
 	form.addSelectbox( device_label_list, deviceIndex, true,
 						function (value)
