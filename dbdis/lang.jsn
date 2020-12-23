@@ -45,6 +45,11 @@
 		"ax_sens":"ax:",
 		"ay_sens":"ay:",
 		"az_sens":"az:",
+		"vibes_sens":"Vibes:",
+		"checkedCells_sens":"Checked cells:",
+		"weakCell_sens":"Weakest cell:",
+		"deltaVoltage_sens":"Voltage difference:",
+		"weakVoltage_sens":"Lowest Voltage:",
 		"Temp":"Temp:",
 		"label1":"Permanent % Announcement:",
 		"perm_value": "Permanent Value Announcement:",
@@ -99,7 +104,10 @@
 		"delete_Akku":"ID = -1 deletes that Battery",
 		"loadLayout":"Layout file:",
 		"loadConfig":"Config. file:",
-		"switchError":"Value <> Reverse setting!"
+		"switchError":"Value <> Reverse setting!",
+		"of":" of ",
+		"checked":" Cells checked",
+		"act":"act:"
 },
 	"de":{
 		"appName":"dbdis",
@@ -146,6 +154,11 @@
 		"ax_sens":"ax:",
 		"ay_sens":"ay:",
 		"az_sens":"az:",
+		"vibes_sens":"Vibes:",
+		"checkedCells_sens":"Überwachte Zellen:",
+		"weakCell_sens":"Schwächste Zelle:",
+		"deltaVoltage_sens":"Spannungsdifferenz:",
+		"weakVoltage_sens":"Niedrigste Spannung:",
 		"Temp":"Temp:",
 		"label1":"Durchgehende Ansage",
 		"label2":"Batterie / Tank Einstellungen",
@@ -199,6 +212,9 @@
 		"delete_Akku":"ID = -1 löscht den Akku",
 		"loadLayout":"Layout Datei:",
 		"loadConfig":"Konfig. Datei:",
-		"switchError":"Schalterwert <> Rev.!"
+		"switchError":"Schalterwert <> Rev.!",
+		"of":" von ",
+		"checked":" Z. überwacht",
+		"act":"akt:"
 	}
 }

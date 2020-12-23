@@ -1,10 +1,10 @@
 local device_label_list = {}
 local device_id_list = {}
 local sensor_lists = {}
-local deviceIndex = 0
 local show
 local device_label
 local switchItem
+local vars
 local output_list = { "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10", "O11", "O12",
 							"O13", "O14", "O15", "O16", "OO"}
 
@@ -12,14 +12,14 @@ local output_list = { "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10
 local function make_lists (deviceId)
 	local sensor, i
 	if ( not device_id_list[1] ) then	-- sensors not yet checked or rebooted
-		deviceIndex = 0
+		vars.deviceIndex = 0
 		for i,sensor in ipairs(system.getSensors()) do
 			if (sensor.param == 0) then	-- new multisensor/device
 				device_label_list[#device_label_list + 1] = sensor.label	-- list presented in sensor select box
 				device_id_list[#device_id_list + 1] = sensor.id				-- to get id from if sensor changed, same numeric indexing
 				
 				if (sensor.id == deviceId) then
-					deviceIndex = #device_id_list
+					vars.deviceIndex = #device_id_list
 				end
 				sensor_lists[#sensor_lists + 1] = {}			-- start new param list only containing label and unit as string
 			else															-- subscript is number of param for current multisensor/device
@@ -33,7 +33,7 @@ local function make_lists (deviceId)
 					device_label_list[#device_label_list + 1] = string.format("%d",sensor.id)
 					device_id_list[#device_id_list + 1] = sensor.id	
 					if (sensor.id == deviceId) then
-						deviceIndex = #device_id_list
+						vars.deviceIndex = #device_id_list
 					end
 					sensor_lists[#sensor_lists + 1] = {}
 				end
@@ -58,7 +58,8 @@ end
 
 
 
-local function setup(vars, senslbls)
+local function setup(varstemp, senslbls)
+	vars = varstemp
 	local switch ={}
 	local temp
 	local dateinamen = {}
@@ -135,25 +136,25 @@ local function setup(vars, senslbls)
 
 	form.addRow(2)
 	form.addLabel({label = vars.trans.labelp0, width=160})
-
-	form.addSelectbox( device_label_list, deviceIndex, true,
+	
+	form.addSelectbox( device_label_list, vars.deviceIndex, true,
 						function (value)
 							if ( not device_id_list[1] ) then	-- no device found
 								return
 							end
 							if (device_label_list[value] == "...") then
 								vars.deviceId = 0
-								deviceIndex = 0
+								vars.deviceIndex = 0
 							else
 								vars.deviceId  = device_id_list[value]
-								deviceIndex = value
+								vars.deviceIndex = value
 							end
 							system.pSave("deviceId", vars.deviceId)
 														
 							form.reinit()
 						end )
 
-	if ( device_id_list and deviceIndex > 0 ) then
+	if ( device_id_list and vars.deviceIndex > 0 ) then
 		form.addRow(2)
 		form.addLabel({label = vars.trans["sensCat"]})
 		form.addSelectbox(vars.catName,vars.catsel,true, function(value)
@@ -176,10 +177,10 @@ local function setup(vars, senslbls)
 						temp = 0
 					end
 					
-					form.addSelectbox(sensor_lists[deviceIndex], temp, true,
+					form.addSelectbox(sensor_lists[vars.deviceIndex], temp, true,
 									function (value)
 										vars.senslbl[senslbl] = {}
-										if sensor_lists[deviceIndex][value] == "..." then 
+										if sensor_lists[vars.deviceIndex][value] == "..." then 
 											value = 0
 											vars.senslbl[senslbl] = nil
 										else 

@@ -107,7 +107,7 @@ local function setup(varstemp, pagetemp)
 		if vars.cd[j].visible then
 			form.addRow(3)
 			form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 210})
-			form.addIntbox(vars[page].cd[j].sep, -1, 5, 2, 0, 1,
+			form.addIntbox(vars[page].cd[j].sep, -8, 5, 2, 0, 1,
 							function (value)
 								vars[page].cd[j].sep = value
 								vars.change[page] = 2
@@ -137,7 +137,7 @@ local function setup(varstemp, pagetemp)
 			form.addRow(3)
 			form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 210})
 			
-			form.addIntbox(vars[page].cd[j].sep, -1, 5, 2, 0, 1,
+			form.addIntbox(vars[page].cd[j].sep, -8, 5, 2, 0, 1,
 							function (value)
 								vars[page].cd[j].sep = value
 								vars.change[page] = 2
