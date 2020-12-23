@@ -124,7 +124,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.27"
+vars.Version = "3.30"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -223,7 +223,7 @@ local function calcDistance(page,column)
 		totalhight = totalhight + vars.cd[j].y
 		vars[page].cd[j].sepdraw = vars[page].cd[j].sep
 		vars[page].cd[j].distdraw = vars[page].cd[j].dist
-		if vars[page].cd[j].sep == -1 then 
+		if vars[page].cd[j].sep < 0 then 
 			totalhight = totalhight + yborder
 		end
 		if i < #drawcolumn then
@@ -573,7 +573,10 @@ local function keyForm(key)
 				changed(1)
 				changed(2)
 			elseif vars.changeSens == 1 or vars.changedConfig == 1 then	
-				saveConfig()	
+				saveConfig()
+			else
+				form.preventDefault()
+				vars.deviceIndex = 0
 			end	
 		end	
 		form.reinit(1)
@@ -607,7 +610,6 @@ end
 local function closeForm()
 	changed(1)
 	changed(2)
-	
 	---unrequire(vars.appName.."/Form")
 	---unrequire(vars.appName.."/Form2")
 	collectgarbage()
@@ -639,7 +641,6 @@ local function loop()
 		system.registerTelemetry(1, Title1, 4, Window1)
 		system.registerTelemetry(2, Title2, 4, Window2)
 		goregisterTelemetry = nil
-    
 	end
 
 	-- debug, memory usage
@@ -685,10 +686,10 @@ local function init(code1)
 		table.insert(vars.catName, vars.trans[catName])
 	end
 	
-	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens", "batCap_sens", "batCells_sens", "batC_sens"}
+	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens", "batCap_sens", "batCells_sens", "batC_sens", "weakCell_sens", "weakVoltage_sens", "checkedCells_sens", "deltaVoltage_sens"}
 	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens", "status2_sens"}
 	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "Temp_sens", "OverI_sens"}
-	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "vario_sens", "speed_sens", "ax_sens", "ay_sens", "az_sens"}
+	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "vario_sens", "speed_sens", "vibes_sens", "ax_sens", "ay_sens", "az_sens"}
 	-- for i,sensCat in pairs(senslbls) do
 		-- for j, senslbl in pairs(sensCat) do
 			-- vars.config[senslbl] = system.pLoad(senslbl, { 0, 0 } )
@@ -731,8 +732,14 @@ local function init(code1)
 	vars.cd.C2_and_I2 = {y = 16, sensors = {"UsedCap2_sens", "I2_sens"}}      	-- CI2
 	vars.cd.U1_and_Temp = {y = 16, sensors = {"U1_sens", "Temp_sens" }}    -- U1 and Temp
 	vars.cd.U2_and_OI = {y = 12, sensors = {"U2_sens", "OverI_sens"}}      -- U2 and OverI
+	vars.cd.U1_and_I1 = {y = 15, sensors = {"U1_sens", "I1_sens"}}      -- U1 and I1
+	vars.cd.U2_and_I2 = {y = 15, sensors = {"U2_sens", "I2_sens"}}      -- U2 and I2
+	vars.cd.used_Cap1 = {y = 16, sensors = {"UsedCap1_sens"}}      -- used capacity 1
+	vars.cd.used_Cap2 = {y = 16, sensors = {"UsedCap2_sens"}}      -- used capacity 1
+	vars.cd.weakest_Cell = {y = 38, sensors = {"weakCell_sens", "weakVoltage_sens", "checkedCells_sens", "deltaVoltage_sens"}}    -- weakest Cell
 	vars.cd.ax_ay_az = {y = 18, sensors = {"ax_sens", "ay_sens", "az_sens"}}      -- ax or ay or az
-	
+	vars.cd.Vibes = {y = 17, sensors = {"vibes_sens"}}      -- Vibes
+		
 	vars[0] = {}
 	vars[0].cd = {}
 	vars[0].cd.TotalCount = {sep = 0, dist = -9} 		-- TotalTime
@@ -755,16 +762,22 @@ local function init(code1)
 	vars[0].cd.I_BEC = {sep = 1, dist = -9}     		-- IBEC
 	vars[0].cd.Temp = {sep = 1 , dist = -9}      		-- Temperature
 	vars[0].cd.Throttle = {sep = 1, dist = -9}    	-- Throttle
-	vars[0].cd.PWM = {sep = 1, dist = -9, y = 17}      	-- PWM
+	vars[0].cd.PWM = {sep = 1, dist = -9}      	-- PWM
 	vars[0].cd.C1_and_I1 = {sep = 1, dist = -9}      	-- CI1
 	vars[0].cd.C2_and_I2 = {sep = 1, dist = -9}      	-- CI2
 	vars[0].cd.U1_and_Temp = {sep = 1, dist = -9}    -- U1 and Temp
 	vars[0].cd.U2_and_OI = {sep = 1, dist = -9}      -- U2 and OverI
-	vars[0].cd.ax_ay_az = {sep = 0, dist = 0}      -- U2 and OverI
+	vars[0].cd.U1_and_I1 = {sep = 0, dist = -9}      -- U1 and I1
+	vars[0].cd.U2_and_I2 = {sep = 0, dist = -9}      -- U2 and I2
+	vars[0].cd.used_Cap1 = {sep = 0, dist = -9}      -- used Capacity 1
+	vars[0].cd.used_Cap2 = {sep = 0, dist = -9}      -- used Capacity 2
+	vars[0].cd.weakest_Cell = {sep = 1, dist = -9}      -- used Capacity 2
+	vars[0].cd.ax_ay_az = {sep = 1, dist = -9}      -- ax ay az
+	vars[0].cd.Vibes = {sep = 1, dist = -9}      -- Vibes
 	
 	vars[0].leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "EngineOff", "Status"} --8
 	vars[0].rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI", "Status2"} --13
-	vars[0].notused = {"Speed", "Rx2Values", "RxBValues", "ax_ay_az"} --3
+	vars[0].notused = {"Speed", "Rx2Values", "RxBValues", "U1_and_I1", "U2_and_I2", "used_Cap1", "used_Cap2", "weakest_Cell", "Vibes", "ax_ay_az"} --7
 
 	vars.config.tank_volume = system.pLoad("tank_volume",0)
 	dbdis_tank_volume = vars.config.tank_volume
