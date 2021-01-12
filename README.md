@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **3.30**
+Latest Version: **3.37**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -45,7 +45,7 @@ http://swiss-aerodesign.com/calculated-capacity.html
 ![TDF](https://github.com/ribid1/dbdis/blob/master/dbdis-img/TDF.jpg)
 ![T-Rex700](https://github.com/ribid1/dbdis/blob/master/dbdis-img/T-Rex700.png)
 ![QC650](https://github.com/ribid1/dbdis/blob/master/dbdis-img/QC650.png)
-![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator.jpg)
+![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator.png)
 ![Polikarpov](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Polikarpov.png)
 ![Predator](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Predator2.png)
 
@@ -143,4 +143,9 @@ V3.0 Added an input Window to config batteries
   
 V3.1 To Interact with the CalCa-Elec from  Walter Loetscher I had to add two lines that his app will get the capacity from the "BAT" site, or the Rfid Sensor in the dbdis app.  
 V3.27 Changed beause the DS12 isn't able to unload not used packages  
-    - Sensors with no labels like from the spirit system causes a failure
+    - Sensors with no labels like from the spirit system causes a failure  
+V3.37 - Muli, Muli EX and 6x cell voltage sensorvalues added  
+  - dbdis_config.jsn for global settings added  
+  - background color for edged boxes added
+  - a 3rd temperatur sensorvalue added and temp sensorvalues new sortet, please pay attention!
+  - manual updated
