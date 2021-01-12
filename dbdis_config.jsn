@@ -1,0 +1,20 @@
+{
+"CalcUsedCapacity":true,
+"AkkuFull":4.08,
+"AkkuUsed":4.08,
+"imaxPreAlarm":2,
+"imaxMainAlarm":4,
+"imaxVoltAlarm":6,
+"label_Temp":"Temp:",
+"label_Temp_2":"Temp 2:",
+"label_fet_Temp":"FET-Temp:",
+"color01":[255,150,0],
+"color02":[255,250,0],
+"color03":[210,255,0],
+"color04":[150,255,0],
+"color05":[0,220,0],
+"color06":[0,255,255],
+"color07":[110,190,250],
+"color08":[255,100,255],
+"color09":[255,70,110]
+}

@@ -124,7 +124,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.30"
+vars.Version = "3.37"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -154,6 +154,10 @@ local function setLanguage()
 	if(obj) then
 		vars.trans = obj[lng] or obj[obj.default]
 	end
+	for i=1,6 do
+		vars.trans["weakCell_sens"..i] = vars.trans.weakCell_sens..string.format("% d:",i)
+		vars.trans["weakVoltage_sens"..i]= vars.trans.weakVoltage_sens..string.format("% d:",i)
+	end
 end
 
 -- remove unused module -- doesn't work in DS12
@@ -164,7 +168,7 @@ end
 
 local function boxvisible()
 	local paired
-	local timeSw_val, engineSw_val
+	local timeSw_val, engineSw_val, engineOffSw_val
 
 	-- was wird angezeigt, was nicht
 	for _,m in ipairs(columns) do
@@ -202,75 +206,333 @@ local function boxvisible()
 	
 	collectgarbage()
 end
+-- local function oldcalcDistance(page,column)
+	-- local totalhight = 0
+	-- local icalc = 0
+	-- local ycalc = 0
+	-- local yborder = 6
+	-- local iRaender = 2
+	-- local drawcolumn = {}
+	
+	-- for i,j in ipairs(column) do
+		-- if vars.cd[j] then 
+			-- if vars.cd[j].visible then table.insert(drawcolumn,1,j) end
+		-- else
+			-- table.remove(column,i)
+		-- end
+	-- end
+	
+	-- for i,j in ipairs(drawcolumn) do
+		-- totalhight = totalhight + vars.cd[j].y
+		-- vars[page].cd[j].sepdraw = vars[page].cd[j].sep
+		-- vars[page].cd[j].distdraw = vars[page].cd[j].dist
+		-- if vars[page].cd[j].sep < 0 then 
+			-- totalhight = totalhight + yborder
+		-- end
+		-- if i == 1 then
+			-- if vars[page].cd[j].dist > -9 then
+				-- totalhight = totalhight + vars[page].cd[j].dist
+				-- iRaender = 1
+			-- end
+			-- vars[page].cd[j].sepdraw = 0
+		-- else
+			-- if vars[page].cd[j].sep > 0 then -- Box mit Trennzeichen
+				-- if vars[page].cd[drawcolumn[i - 1]].sep == -1 then   -- nachfolgend hat eine Box
+					-- vars[page].cd[j].sepdraw = 0
+					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
+						-- totalhight = totalhight + vars[page].cd[j].dist
+					-- else --Distanz wird berechnet
+						-- icalc = icalc + 1
+					-- end
+				-- else  -- nachfolgend hat keine Box
+					-- totalhight = totalhight + vars[page].cd[j].sep
+					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
+						-- totalhight = totalhight + vars[page].cd[j].dist * 2
+					-- else --Distanz wird berechnet
+						-- icalc = icalc + 2
+					-- end
+				-- end
+			-- else -- Box ohne Trennzeichen
+				-- if vars[page].cd[j].dist > -9 then    -- Distanz angegeben
+					-- totalhight = totalhight + vars[page].cd[j].dist
+				-- else --Distanz wird berechnet
+					-- icalc = icalc + 1
+				-- end
+			-- end
+		-- end
+	-- end
+
+	-- ycalc = math.floor((159 - totalhight) / (icalc + iRaender))
+		
+	-- for i,j in ipairs(drawcolumn) do
+		-- if vars[page].cd[j].dist == -9 then 
+			-- vars[page].cd[j].distdraw = ycalc
+			-- if i == 1 then
+				-- vars[page].cd[j].distdraw = (159-totalhight-icalc*ycalc)/2
+			-- end
+		-- end
+	-- end
+	-- collectgarbage()
+	-- return ycalc, drawcolumn
+-- end
 
 local function calcDistance(page,column)
 	local totalhight = 0
-	local icalc = 0
+	local icalc = 1
 	local ycalc = 0
 	local yborder = 6
-	local iRaender = 2
-	local drawcolumn = {}
+	local ybd2 = 3  -- yborder / 2
+	local dcol = {}    -- drawcolumn
+	-- dcol.order -- Reihenfolge der Box
+	-- dcol.yStart -- Start der Box
+	-- dcol.Sep  -- Tatsächlich gezeichneter Seperator
+	local yStart = 159   -- Start der Box
+	local distO = {} -- Original Distanz
+	local count = {}
+	local k,l = 0,0
 	
 	for i,j in ipairs(column) do
 		if vars.cd[j] then 
-			if vars.cd[j].visible then table.insert(drawcolumn,j) end
+			if vars.cd[j].visible then 
+				table.insert(dcol,1,{})
+				dcol[1].order = j
+			end
 		else
 			table.remove(column,i)
 		end
 	end
 	
-	for i,j in ipairs(drawcolumn) do
-		totalhight = totalhight + vars.cd[j].y
-		vars[page].cd[j].sepdraw = vars[page].cd[j].sep
-		vars[page].cd[j].distdraw = vars[page].cd[j].dist
-		if vars[page].cd[j].sep < 0 then 
-			totalhight = totalhight + yborder
+	if #dcol > 0 then	
+		for i,j in ipairs(dcol) do
+			j.SepO = vars[page].cd[j.order].sep
+			j.Sep = j.SepO
+			distO[i] = vars[page].cd[j.order].dist
+			count[i] = true
 		end
-		if i < #drawcolumn then
-			if vars[page].cd[j].sep > 0 then -- Box mit Trennzeichen
-				if vars[page].cd[drawcolumn[i + 1]].sep == -1 then   -- nachfolgend hat eine Box
-					vars[page].cd[j].sepdraw = 0
-					if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
-						totalhight = totalhight + vars[page].cd[j].dist
-					else --Distanz wird berechnet
-						icalc = icalc + 1
-					end
-				else  -- nachfolgend hat keine Box
-					totalhight = totalhight + vars[page].cd[j].sep
-					if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
-						totalhight = totalhight + vars[page].cd[j].dist * 2
-					else --Distanz wird berechnet
-						icalc = icalc + 2
-					end
+		dcol[1].Sep = 0
+		for i,j in ipairs(dcol) do
+			totalhight = totalhight + vars.cd[j.order].y			
+			if j.SepO < 0 then -- Box mit Rand
+				totalhight = totalhight + yborder
+				if i-j.SepO <= #dcol then
+					dcol[i-j.SepO].Sep = 0
 				end
-			else -- Box ohne Trennzeichen
-				if vars[page].cd[j].dist > -9 then    -- Distanz angegeben
-					totalhight = totalhight + vars[page].cd[j].dist
-				else --Distanz wird berechnet
-					icalc = icalc + 1
+				l = math.min(i-1-j.SepO,#dcol)
+				if dcol[l].SepO > -1 and count[l] then
+					count[l] = false
+					totalhight = totalhight + ybd2
 				end
+			end	
+			k = 1
+			if j.Sep > 0 then -- Box mit Trennzeichen
+				k = 2
+				totalhight = totalhight + j.Sep
 			end
-		else
-			if vars[page].cd[j].dist > -9 then
-				totalhight = totalhight + vars[page].cd[j].dist
-				iRaender = 1
+			
+			if distO[i] > -9 then  -- Distanz angegeben
+				totalhight = totalhight + distO[i] * k
+			else --Distanz wird berechnet
+				icalc = icalc + k
 			end
-			vars[page].cd[j].sepdraw = 0
 		end
-	end
-
-	ycalc = math.floor((160 - totalhight) / (icalc + iRaender))
-	
-	for i,j in ipairs(drawcolumn) do
-		if vars[page].cd[j].dist == -9 then 
-			vars[page].cd[j].distdraw = ycalc
+		ycalc = math.floor((159 - totalhight) / icalc)
+		for i,j in ipairs(dcol) do
+			if distO[i] == -9 then 
+				dcol[i].ydist = ycalc
+			else
+				dcol[i].ydist = distO[i]
+			end
+			j.yStart = 0
+		end		
+		
+		if distO[1] == -9 then
+			dcol[1].ydist = math.floor((yStart-totalhight-(icalc-2)*ycalc)/2)
 		end
-	end
-	local yStart = math.floor((160 - totalhight - icalc * ycalc) / iRaender)
-
+		
+		for i,j in ipairs(dcol) do
+			yStart = yStart - dcol[i].ydist + j.yStart - vars.cd[j.order].y
+			if j.SepO < 0 then
+				yStart = yStart - ybd2
+				j.yStart = yStart
+				if j.SepO < -1 and i-j.SepO <= #dcol then
+					dcol[i-j.SepO].yStart = -ybd2
+				end
+				if i < #dcol then dcol[i+1].yStart = -ybd2 end
+			else
+				if j.Sep > 0 then 
+					yStart = yStart - j.SepO - dcol[i].ydist
+				end	
+				j.yStart = yStart
+			end
+		end		
+	end	
 	collectgarbage()
-	return  yStart, ycalc, drawcolumn
+	return ycalc, dcol
 end
+
+	-- for i,j in ipairs(column) do
+		-- if vars.cd[j] then 
+			-- if vars.cd[j].visible then table.insert(drawcolumn,1,j) end
+		-- else
+			-- table.remove(column,i)
+		-- end
+	-- end
+	
+	-- if #drawcolumn > 0 then	
+		-- for i,j in ipairs(drawcolumn) do
+			-- cd[j].sepdraw = nil
+		-- end
+		-- cd[drawcolumn[1]].sepdraw = 0
+		-- for i,j in ipairs(drawcolumn) do
+			-- totalhight = totalhight + vars.cd[j].y			
+			-- if not cd[j].sepdraw then
+				-- cd[j].sepdraw = cd[j].sep
+			-- end
+			-- if cd[j].sep < 0 then -- Box mit Rand
+				-- totalhight = totalhight + yborder
+				-- if i-cd[j].sep <= #drawcolumn then
+					-- cd[drawcolumn[i-cd[j].sep]].sepdraw = 0
+				-- end
+				-- if cd[j].sep < -1 and cd[drawcolumn[math.min(i-cd[j].sep,#drawcolumn)]].sep > -1 then 
+					-- totalhight = totalhight + ybd2
+				-- end
+			-- end	
+			-- local k = 1
+			-- if cd[j].sepdraw > 0 then -- Box mit Trennzeichen
+				-- k = 2
+			-- end
+			-- totalhight = totalhight + cd[j].sepdraw
+			-- if cd[j].dist > -9 then  -- Distanz angegeben
+				-- totalhight = totalhight + cd[j].dist * k
+			-- else --Distanz wird berechnet
+				-- icalc = icalc + k
+			-- end
+		-- end
+
+		-- ycalc = math.floor((158 - totalhight) / icalc)
+		
+		-- for i,j in ipairs(drawcolumn) do
+			-- if cd[j].dist == -9 then 
+				-- distdraw[i] = ycalc
+			-- else
+				-- distdraw[i] = cd[j].dist
+			-- end
+			-- cd[j].yStart = 0
+			-- cd[j].yBox = vars.cd[j].y + yborder
+		-- end		
+		
+		-- if cd[drawcolumn[1]].dist == -9 then
+			-- distdraw[1] = (yStart-totalhight-(icalc-2)*ycalc)/2
+		-- end
+		
+		-- for i,j in ipairs(drawcolumn) do
+			-- ySep = yStart - distdraw[i] + cd[j].yStart
+			-- yStart = ySep - vars.cd[j].y
+			-- if cd[j].sep < 0 then
+				-- yStart = yStart - ybd2
+				-- local y = 0
+				-- local sep = -1
+				-- for k = i+1,math.min(i-1-cd[j].sep,#drawcolumn) do
+					-- y = y + vars.cd[drawcolumn[k]].y + distdraw[k] 
+					-- sep = cd[drawcolumn[k]].sep
+					-- if  sep < 0 then 
+						-- y = y + yborder
+					-- elseif cd[drawcolumn[k]].sepdraw > 0 then
+						-- y = y + sep + distdraw[k] 
+					-- end
+				-- end	
+				-- if sep > -1 then y = y + ybd2 end
+				-- cd[j].yBox = cd[j].yBox + y
+				-- cd[j].ySep = ySep - cd[j].yBox
+				-- cd[j].yStart = yStart
+				-- if cd[j].sep < -1 and i-cd[j].sep <= #drawcolumn then
+					-- if cd[drawcolumn[i-cd[j].sep]].sep > -1 then
+						-- cd[drawcolumn[i-cd[j].sep]].yStart = - ybd2
+					-- end
+				-- end
+				-- yStart = yStart - ybd2
+			-- else
+				-- if cd[j].sepdraw > 0 then 
+					-- yStart = yStart - cd[j].sep - distdraw[i]
+				-- end	
+				-- cd[j].ySep = ySep - cd[j].sep
+				-- cd[j].yStart = yStart
+			-- end
+		-- end	
+		-- vars[page].cd = cd	
+	-- end	
+
+-- from top to down:
+
+-- local function calcDistance(page,column)
+	-- local totalhight = 0
+	-- local icalc = 0
+	-- local ycalc = 0
+	-- local yborder = 6
+	-- local iRaender = 2
+	-- local drawcolumn = {}
+	
+	-- for i,j in ipairs(column) do
+		-- if vars.cd[j] then 
+			-- if vars.cd[j].visible then table.insert(drawcolumn,j) end
+		-- else
+			-- table.remove(column,i)
+		-- end
+	-- end
+	
+	-- for i,j in ipairs(drawcolumn) do
+		-- totalhight = totalhight + vars.cd[j].y
+		-- vars[page].cd[j].sepdraw = vars[page].cd[j].sep
+		-- vars[page].cd[j].distdraw = vars[page].cd[j].dist
+		-- if vars[page].cd[j].sep < 0 then 
+			-- totalhight = totalhight + yborder
+		-- end
+		-- if i < #drawcolumn then
+			-- if vars[page].cd[j].sep > 0 then -- Box mit Trennzeichen
+				-- if vars[page].cd[drawcolumn[i + 1]].sep == -1 then   -- nachfolgend hat eine Box
+					-- vars[page].cd[j].sepdraw = 0
+					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
+						-- totalhight = totalhight + vars[page].cd[j].dist
+					-- else --Distanz wird berechnet
+						-- icalc = icalc + 1
+					-- end
+				-- else  -- nachfolgend hat keine Box
+					-- totalhight = totalhight + vars[page].cd[j].sep
+					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
+						-- totalhight = totalhight + vars[page].cd[j].dist * 2
+					-- else --Distanz wird berechnet
+						-- icalc = icalc + 2
+					-- end
+				-- end
+			-- else -- Box ohne Trennzeichen
+				-- if vars[page].cd[j].dist > -9 then    -- Distanz angegeben
+					-- totalhight = totalhight + vars[page].cd[j].dist
+				-- else --Distanz wird berechnet
+					-- icalc = icalc + 1
+				-- end
+			-- end
+		-- else
+			-- if vars[page].cd[j].dist > -9 then
+				-- totalhight = totalhight + vars[page].cd[j].dist
+				-- iRaender = 1
+			-- end
+			-- vars[page].cd[j].sepdraw = 0
+		-- end
+	-- end
+
+	-- ycalc = math.floor((160 - totalhight) / (icalc + iRaender))
+	
+	-- for i,j in ipairs(drawcolumn) do
+		-- if vars[page].cd[j].dist == -9 then 
+			-- vars[page].cd[j].distdraw = ycalc
+		-- end
+	-- end
+	-- local yStart = math.floor((160 - totalhight - icalc * ycalc) / iRaender)
+
+	-- collectgarbage()
+	-- return  yStart, ycalc, drawcolumn
+-- end
+
 
 local function load_txt(page)
 	local line
@@ -374,15 +636,19 @@ local function loadStartOrder()
 		file = io.readall("Apps/"..vars.appName.."/"..vars.model.."_d"..page..".jsn", "r") 
 		if file then
 			vars[page] = json.decode(file)
+			-- Farbe noch nicht vorhanden:
+			for i,j in pairs(vars[page].cd) do
+				if not j.col then j.col = 0 end
+			end
 			--if vars.deviceId == 0 then 
-				vars[page].leftstart, vars[page].ycalcLeft, vars[page].leftdrawcol = calcDistance(page,vars[page].leftcolumn)
-				vars[page].rightstart, vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
+				vars[page].ycalcLeft, vars[page].leftdrawcol = calcDistance(page,vars[page].leftcolumn)
+				vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
 			--end
 		else
 			vars[page] = json.decode(json.encode(vars[page-1]))
 			if page == 1 then
-				vars[page].leftstart, vars[page].ycalcLeft, vars[page].leftdrawcol = calcDistance(page,vars[page].leftcolumn)
-				vars[page].rightstart, vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
+				vars[page].ycalcLeft, vars[page].leftdrawcol = calcDistance(page,vars[page].leftcolumn)
+				vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
 			end
 		end
 	end
@@ -432,8 +698,8 @@ local function changed(page)
 		checkNewBox[page] = true
 	end
 	if vars.change[page] > 1 then -- Reihenfolge geändert
-		vars[page].leftstart, vars[page].ycalcLeft, vars[page].leftdrawcol = calcDistance(page,vars[page].leftcolumn)
-		vars[page].rightstart, vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
+		vars[page].ycalcLeft, vars[page].leftdrawcol = calcDistance(page,vars[page].leftcolumn)
+		vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
 	end
 	if vars.change[page] > 0 then
 		saveOrder(page)
@@ -675,21 +941,32 @@ local function init(code1)
 	vars.changeSens = 0   -- 0: keine Änderung, 1: Sensorzuweisung geändert (save) 2: load config
 	vars.change = {0,0}     -- 0-keine Änderung, 1:sep oder dist bei unused hat sich geä., 2:moveLine ausgeführt, 3:template hat sich geändert
 	
-	
+	vars.configG = {}
 	vars.config = {}
 	vars.senslbl = {}
 	vars.switches = {}
 	vars.switchInfo = {}
-	vars.cat = {"eDrive", "fuelDrive", "Rx", "mixed"}
+	vars.drawVal = {}
+	
+	
+	vars.cat = {"eDrive", "fuelDrive", "Rx", "mixed", "Muli", "secondEngine"}
 	vars.catName = {vars.trans["all"]}
 	for i,catName in ipairs(vars.cat) do
 		table.insert(vars.catName, vars.trans[catName])
 	end
 	
-	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens", "batCap_sens", "batCells_sens", "batC_sens", "weakCell_sens", "weakVoltage_sens", "checkedCells_sens", "deltaVoltage_sens"}
-	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens", "status2_sens"}
-	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "Temp_sens", "OverI_sens"}
-	senslbls.mixed = {"rotor_rpm_sens", "fet_temp_sens", "altitude_sens", "vario_sens", "speed_sens", "vibes_sens", "ax_sens", "ay_sens", "az_sens"}
+	--46 Sensoren
+	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens", "batCap_sens", "batCells_sens", "batC_sens"} --10
+	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens"} --3
+	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "fet_temp_sens", "OverI_sens"} --8
+	senslbls.mixed = {"rotor_rpm_sens", "Temp_sens", "altitude_sens", "vario_sens", "speed_sens", "vibes_sens", "ax_sens", "ay_sens", "az_sens"} --9
+	senslbls.Muli = {"checkedCells_sens", "deltaVoltage_sens"} --2
+	senslbls.secondEngine = {"status2_sens", "Temp2_sens"} --2
+	for i=1,6 do 
+		table.insert(senslbls.Muli,"weakCell_sens"..i)
+		table.insert(senslbls.Muli,"weakVoltage_sens"..i)
+	end --12
+	
 	-- for i,sensCat in pairs(senslbls) do
 		-- for j, senslbl in pairs(sensCat) do
 			-- vars.config[senslbl] = system.pLoad(senslbl, { 0, 0 } )
@@ -700,8 +977,11 @@ local function init(code1)
 		for j, senslbl in pairs(sensCat) do
 			temp = system.pLoad(senslbl, { 0, 0 } )
 			if temp[2] ~= 0 then vars.senslbl[senslbl] = temp end
+			vars.drawVal[senslbl] = {}
+			vars.drawVal[senslbl].valid = true
 		end
-	end	
+	end
+
 		
 	vars.deviceId = system.pLoad("deviceId", 0)	-- remember last selectet device
 	vars.catsel = system.pLoad("catsel", 1) 		-- selection of sensor category
@@ -725,18 +1005,20 @@ local function init(code1)
 	vars.cd.Current = {y = 17, sensors = {"motor_current_sens"}}   		-- Current
 	vars.cd.Pump_voltage = {y = 18, sensors = {"pump_voltage_sens"}}    -- Pump voltage
 	vars.cd.I_BEC = {y = 17, sensors = {"bec_current_sens"}}     		-- IBEC
-	vars.cd.Temp = {y = 17, sensors = {"fet_temp_sens"}}      		-- Temperature
+	vars.cd.Temp = {y = 17, sensors = {"Temp_sens"}}      		-- Temperature 1
+	vars.cd.Temp_2 = {y = 17, sensors = {"Temp2_sens"}}      		-- Temperature 2
+	vars.cd.FET_Temp = {y = 17, sensors = {"fet_temp_sens"}}      		-- FET-Temperature
 	vars.cd.Throttle = {y = 17, sensors = {"throttle_sens"}}    	-- Throttle
 	vars.cd.PWM = {y = 17, sensors = {"pwm_percent_sens"}}      	-- PWM
 	vars.cd.C1_and_I1 = {y = 16, sensors = {"UsedCap1_sens", "I1_sens"}}      	-- CI1
 	vars.cd.C2_and_I2 = {y = 16, sensors = {"UsedCap2_sens", "I2_sens"}}      	-- CI2
-	vars.cd.U1_and_Temp = {y = 16, sensors = {"U1_sens", "Temp_sens" }}    -- U1 and Temp
+	vars.cd.U1_and_Temp = {y = 16, sensors = {"U1_sens"}}    -- U1 and Temp
 	vars.cd.U2_and_OI = {y = 12, sensors = {"U2_sens", "OverI_sens"}}      -- U2 and OverI
-	vars.cd.U1_and_I1 = {y = 15, sensors = {"U1_sens", "I1_sens"}}      -- U1 and I1
-	vars.cd.U2_and_I2 = {y = 15, sensors = {"U2_sens", "I2_sens"}}      -- U2 and I2
+	vars.cd.U1_and_I1 = {y = 16, sensors = {"U1_sens", "I1_sens"}}      -- U1 and I1
+	vars.cd.U2_and_I2 = {y = 16, sensors = {"U2_sens", "I2_sens"}}      -- U2 and I2
 	vars.cd.used_Cap1 = {y = 16, sensors = {"UsedCap1_sens"}}      -- used capacity 1
 	vars.cd.used_Cap2 = {y = 16, sensors = {"UsedCap2_sens"}}      -- used capacity 1
-	vars.cd.weakest_Cell = {y = 38, sensors = {"weakCell_sens", "weakVoltage_sens", "checkedCells_sens", "deltaVoltage_sens"}}    -- weakest Cell
+	vars.cd.weakest_Cell = {y = 38, sensors = {"weakCell_sens1", "weakVoltage_sens1", "checkedCells_sens", "deltaVoltage_sens"}}    -- weakest Cell
 	vars.cd.ax_ay_az = {y = 18, sensors = {"ax_sens", "ay_sens", "az_sens"}}      -- ax or ay or az
 	vars.cd.Vibes = {y = 17, sensors = {"vibes_sens"}}      -- Vibes
 		
@@ -760,7 +1042,9 @@ local function init(code1)
 	vars[0].cd.Current = {sep = 2, dist = -9}   		-- Current
 	vars[0].cd.Pump_voltage = {sep = 1, dist = -9}    -- Pump voltage
 	vars[0].cd.I_BEC = {sep = 1, dist = -9}     		-- IBEC
-	vars[0].cd.Temp = {sep = 1 , dist = -9}      		-- Temperature
+	vars[0].cd.Temp = {sep = 1 , dist = -9}      		-- Temperature 1
+	vars[0].cd.Temp_2 = {sep = 1 , dist = -9}      		-- Temperature 2
+	vars[0].cd.FET_Temp = {sep = 1 , dist = -9}      		-- FET-Temperature
 	vars[0].cd.Throttle = {sep = 1, dist = -9}    	-- Throttle
 	vars[0].cd.PWM = {sep = 1, dist = -9}      	-- PWM
 	vars[0].cd.C1_and_I1 = {sep = 1, dist = -9}      	-- CI1
@@ -775,10 +1059,36 @@ local function init(code1)
 	vars[0].cd.ax_ay_az = {sep = 1, dist = -9}      -- ax ay az
 	vars[0].cd.Vibes = {sep = 1, dist = -9}      -- Vibes
 	
-	vars[0].leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "EngineOff", "Status"} --8
-	vars[0].rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI", "Status2"} --13
-	vars[0].notused = {"Speed", "Rx2Values", "RxBValues", "U1_and_I1", "U2_and_I2", "used_Cap1", "used_Cap2", "weakest_Cell", "Vibes", "ax_ay_az"} --7
+	vars[0].leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "EngineOff", "Status"} --9
+	vars[0].rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "FET_Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI", "Status2"} --14
+	vars[0].notused = {"Speed", "Rx2Values", "RxBValues", "U1_and_I1", "U2_and_I2", "used_Cap1", "used_Cap2", "Temp_2", "weakest_Cell", "Vibes", "ax_ay_az"} --11
+	
+	for i,j in pairs(vars[0].cd) do
+		j.col = 0
+	end
 
+	--Global config values:
+	vars.configG.AkkuFull = 4.08  --bei einer Spannung über diesen Wert wird der Akku als voll erkannt
+	vars.configG.AkkuUsed = 4.08  --bei einer Spannung unter diesem Wert wird der Akku als verwendet erkannt
+	vars.configG.imaxPreAlarm = 2  -- maximale Anzahl Voralarm
+	vars.configG.imaxMainAlarm = 4 -- maximale Anzahl Hauptalarm
+	vars.configG.imaxVoltAlarm = 6 -- maximale Anzahl voltage Alarm
+	vars.configG.CalcUsedCapacity = true  -- calculate remaining Capacity due to voltage
+	vars.configG.color = {{255,150,0},{255,250,0},{210,255,0},{150,255,0},{0,220,0},{0,255,255},{110,190,250},{255,100,255},{255,70,110}}
+	file = io.readall("Apps/"..vars.appName.."/dbdis_config.jsn", "r") 
+	if file then 
+		obj = json.decode(file)
+		for i,k in pairs(obj) do
+			if vars.trans[i] then 
+				vars.trans[i] = k
+			elseif string.sub(i,1,5) == "color" then
+				vars.configG.color[tonumber(string.sub(i,-2,-1))] = k
+			else	
+				vars.configG[i] = k
+			end
+		end		
+	end
+	
 	vars.config.tank_volume = system.pLoad("tank_volume",0)
 	dbdis_tank_volume = vars.config.tank_volume
 	vars.config.voltage_alarm_voice = system.pLoad("voltage_alarm_voice", "...")
