@@ -68,7 +68,7 @@ Select Sensor Values:
 ![Select Sensor Values 3](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Select%20Sensor%20Values%203.png)
 
 Setup Announcements:  
-(The capacity and percent announcements are used either for the battery as for the fuel)
+(The capacity and percent announcements are used either for the battery as for the fuel)  
 ![Setup Announcements](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20Announcements.png)
 
 Setup Battery:  
@@ -78,7 +78,7 @@ Setup Time Switches:
 ![Setup Time Switches](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20Time%20Switches.png)
 
 Setup History:  
-![Setup History](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20History.png)
+![Setup History](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Setup%20History.png) 
 
 ### Layout:
 Design the Layout (use the arrow keys to change the order):  
