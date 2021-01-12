@@ -97,28 +97,34 @@ local function setup(varstemp, pagetemp)
 	end, {width = 210})	
 
 
-	form.addSpacer(320,10)
+	form.addSpacer(350,10)
 	form.addRow(2)
 	form.addLabel({label = (vars.trans.Leftrow.." ("..string.format("%.f",vars[page].ycalcLeft)..")"), font = FONT_BOLD, alignRight = false, enabled = true})
-	form.addLabel({label = "Sep.:   Dist.:", font = FONT_BOLD, alignRight = true, enabled = true})
+	form.addLabel({label = "Sep:   Dist:  Col:", font = FONT_BOLD, alignRight = true, enabled = true})
 
 			
 	for i,j in ipairs(vars[page].leftcolumn) do	
 		if vars.cd[j].visible then
-			form.addRow(3)
-			form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 210})
+			form.addRow(4)
+			form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 185})
 			form.addIntbox(vars[page].cd[j].sep, -8, 5, 2, 0, 1,
 							function (value)
 								vars[page].cd[j].sep = value
 								vars.change[page] = 2
 								form.setButton(page+1, "save",ENABLED)
-							end, {font = fontLabel, width = 50})
+							end, {font = fontLabel, width = 45})
 			form.addIntbox(vars[page].cd[j].dist, -9, 160, -9, 0, 1,
 							function (value)
 								vars[page].cd[j].dist = value
 								vars.change[page] = 2
 								form.setButton(page+1, "save",ENABLED)
-							end, {font = fontLabel, width = 60})
+							end, {font = fontLabel, width = 45})
+			form.addIntbox(vars[page].cd[j].col, 0, 9, 0, 0, 1,
+							function (value)
+								vars[page].cd[j].col = value
+								vars.change[page] = 2
+								form.setButton(page+1, "save",ENABLED)
+							end, {font = fontLabel, width = 45})
 		else 
 			form.addRow(1)
 			form.addLabel({label = j,font = FONT_MINI, width = 210})				
@@ -130,25 +136,31 @@ local function setup(varstemp, pagetemp)
 	form.addLabel({label = "----------------------------------------------------------"})
 	form.addRow(2)
 	form.addLabel({label = (vars.trans.Rightrow.." ("..string.format("%.f",vars[page].ycalcRight)..")"), font = FONT_BOLD, alignRight = false, enabled = true})
-	form.addLabel({label = "Sep.:   Dist.:", font = FONT_BOLD, alignRight = true, enabled = true})
+	form.addLabel({label = "Sep:   Dist:  Col:", font = FONT_BOLD, alignRight = true, enabled = true})
 
 	for i,j in ipairs(vars[page].rightcolumn) do
 		if vars.cd[j].visible then
-			form.addRow(3)
-			form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 210})
+			form.addRow(4)
+			form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 185})
 			
 			form.addIntbox(vars[page].cd[j].sep, -8, 5, 2, 0, 1,
 							function (value)
 								vars[page].cd[j].sep = value
 								vars.change[page] = 2
 								form.setButton(page+1, "save",ENABLED)
-							end, {width = 50})
+							end, {width = 45})
 			form.addIntbox(vars[page].cd[j].dist, -9, 160, -9, 0, 1,
 							function (value)
 								vars[page].cd[j].dist = value
 								vars.change[page] = 2
 								form.setButton(page+1, "save",ENABLED)
-							end, {width = 60})
+							end, {width = 45})
+			form.addIntbox(vars[page].cd[j].col, 0, 9, 0, 0, 1,
+							function (value)
+								vars[page].cd[j].col = value
+								vars.change[page] = 2
+								form.setButton(page+1, "save",ENABLED)
+							end, {font = fontLabel, width = 45})
 		else 
 			form.addRow(1)
 			form.addLabel({label = j,font = FONT_MINI, width = 210})				
@@ -160,26 +172,32 @@ local function setup(varstemp, pagetemp)
 	form.addLabel({label = "----------------------------------------------------------", enabled = false})
 	form.addRow(2)
 	form.addLabel({label = vars.trans.notused, font = FONT_BOLD, alignRight = false, enabled = true})
-	form.addLabel({label = "Sep.:   Dist.:", font = FONT_BOLD, alignRight = true, enabled = true})
+	form.addLabel({label = "Sep:   Dist:  Col:", font = FONT_BOLD, alignRight = true, enabled = true})
 	
 	for i,j in ipairs(vars[page].notused) do
 		if vars.cd[j] then 
 			if vars.cd[j].visible then
-				form.addRow(3)
-				form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 210})
+				form.addRow(4)
+				form.addLabel({label = j.." ("..vars.cd[j].y..")",font = FONT_NORMAL, width = 185})
 				
-				form.addIntbox(vars[page].cd[j].sep, -1, 5, 2, 0, 1,
+				form.addIntbox(vars[page].cd[j].sep, -8, 5, 2, 0, 1,
 								function (value)
 									vars[page].cd[j].sep = value
 									if vars.change[page] ~= 2 then vars.change[page] = 1 end
 									form.setButton(page+1, "save",ENABLED)
-								end, {width = 50})
+								end, {width = 45})
 				form.addIntbox(vars[page].cd[j].dist, -9, 100, -9, 0, 1,
 								function (value)
 									vars[page].cd[j].dist = value
 									if vars.change[page] ~= 2 then vars.change[page] = 1 end
 									form.setButton(page+1, "save",ENABLED)
-								end, {width = 60})
+								end, {width = 45})
+				form.addIntbox(vars[page].cd[j].col, 0, 9, 0, 0, 1,
+							function (value)
+								vars[page].cd[j].col = value
+								vars.change[page] = 2
+								form.setButton(page+1, "save",ENABLED)
+							end, {font = fontLabel, width = 45})				
 			else 
 				form.addRow(1)
 				form.addLabel({label = j,font = FONT_MINI, width = 210})				

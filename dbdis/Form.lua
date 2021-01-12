@@ -164,7 +164,7 @@ local function setup(varstemp, senslbls)
 		end)
 		
 		for i, sensCat in ipairs(vars.cat) do
-			if sensCat == vars.cat[vars.catsel-1] or vars.catsel == 1 then
+			if sensCat == vars.cat[vars.catsel-1] or (vars.catsel == 1 and sensCat ~= "secondEngine" and sensCat ~= "Muli") then
 				form.addSpacer(318,7)
 				for j, senslbl in pairs(senslbls[sensCat]) do
 					form.addRow(2) 	
