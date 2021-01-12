@@ -82,7 +82,10 @@ Setup History:
 
 ### Layout:
 Design the Layout (use the arrow keys to change the order):  
-- Sep.: determine the thickness of the seperator line (0 = no seperator, -1 = value is edged)  
+- Sep: determine the thickness of the seperator line (0 = no seperator, -1 = value is edged, -2 = this value and the last value are edged,  
+-3 = this value and the last 2 values are edged, and so on...)  
+- Dist: Determines the distance between the boxes, -9 = the distance is calculated by the app
+- Col: Determines the color of an edged box (the color is driven by the dbdis_config.jsn which have to be placed in the dbdis folder)  
 
 ![Layout 1](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_1.png)
 ![Layout 2](https://github.com/ribid1/dbdis/blob/master/dbdis-img/Layout_2.png)
