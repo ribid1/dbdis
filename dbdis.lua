@@ -72,6 +72,19 @@
 			Improvement of saving the values of used batteries, especially for calc-el values.
 	V3.23 Pre alarm added
 	V3.24 Improvements to calculate the used capacity
+	V3.27 Changed beause the DS12 isn't able to unload not used packages
+		- Sensors with no labels like from the spirit system causes a failure
+	V3.37 - Muli, Muli EX and 6x cell voltage sensorvalues added
+		  - dbdis_config.jsn for global settings added
+		  - background color for edged boxes added
+		  - a 3rd temperatur sensorvalue added and temp sensorvalues new sortet, please pay attention!
+          - manual updated
+	V3.40 - Battery selection is limited to the batteries in the database
+		  - In the flightbook max. current of the flight is saved
+		  - A second tank volume is added
+		  - Sensor values for a second drive is added
+		  - A rpm factor for the RPM_2 box is added
+
 
 --]]
 
@@ -124,7 +137,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.37"
+vars.Version = "3.40"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -203,78 +216,56 @@ local function boxvisible()
 			end
 		end
 	end
+	vars.sensID = {}
+	if vars.senslbl.batID_sens then vars.sensID[1] = "batID_sens" end
+	if vars.senslbl.batID2_sens then vars.sensID[2] = "batID2_sens" end
+	
+	
+	if vars.config.tank_volume2 == 0 then 
+		vars.tankRatio2 = 1
+	else
+		vars.tankRatio2 = vars.config.tank_volume1 / vars.config.tank_volume2
+	end
+	
+	vars.iAkkus = {}
+	vars.iTanks = {}
+	vars.middle = {}
+	vars.iEngines = 0
+	
+	if vars.senslbl.used_capacity_sens or Calca_dispFuel then
+		vars.middle = {"drawBattery"}
+		vars.iEngines = 1
+		vars.iAkkus = {1}
+		if vars.senslbl.used_capacity2_sens then
+			vars.iEngines = 2
+			if not vars.switches.akkuSw then
+				vars.iAkkus = {1,2}
+				vars.middle = {"draw1stBattery", "draw2ndBattery"} 
+			end
+		end
+	elseif vars.senslbl.used_capacity2_sens then
+		vars.iEngines = 1
+		vars.iAkkus = {2}
+		vars.middle = {"draw2ndBattery"}
+	end
+	
+	if vars.senslbl.remaining_fuel_percent_sens or Calca_dispGas then
+		vars.middle = {"drawTank"}
+		vars.iTanks = {1}
+		if vars.senslbl.remaining_fuel_percent2_sens then
+			if not vars.switches.akkuSw then
+				vars.iTanks = {1,2}
+				vars.middle = {"draw1stTank", "draw2ndTank"}
+			end
+		end
+	elseif vars.senslbl.remaining_fuel_percent2_sens then
+		table.insert(vars.middle, "draw2ndTank")
+		vars.iTanks = {2}
+	end
 	
 	collectgarbage()
 end
--- local function oldcalcDistance(page,column)
-	-- local totalhight = 0
-	-- local icalc = 0
-	-- local ycalc = 0
-	-- local yborder = 6
-	-- local iRaender = 2
-	-- local drawcolumn = {}
-	
-	-- for i,j in ipairs(column) do
-		-- if vars.cd[j] then 
-			-- if vars.cd[j].visible then table.insert(drawcolumn,1,j) end
-		-- else
-			-- table.remove(column,i)
-		-- end
-	-- end
-	
-	-- for i,j in ipairs(drawcolumn) do
-		-- totalhight = totalhight + vars.cd[j].y
-		-- vars[page].cd[j].sepdraw = vars[page].cd[j].sep
-		-- vars[page].cd[j].distdraw = vars[page].cd[j].dist
-		-- if vars[page].cd[j].sep < 0 then 
-			-- totalhight = totalhight + yborder
-		-- end
-		-- if i == 1 then
-			-- if vars[page].cd[j].dist > -9 then
-				-- totalhight = totalhight + vars[page].cd[j].dist
-				-- iRaender = 1
-			-- end
-			-- vars[page].cd[j].sepdraw = 0
-		-- else
-			-- if vars[page].cd[j].sep > 0 then -- Box mit Trennzeichen
-				-- if vars[page].cd[drawcolumn[i - 1]].sep == -1 then   -- nachfolgend hat eine Box
-					-- vars[page].cd[j].sepdraw = 0
-					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
-						-- totalhight = totalhight + vars[page].cd[j].dist
-					-- else --Distanz wird berechnet
-						-- icalc = icalc + 1
-					-- end
-				-- else  -- nachfolgend hat keine Box
-					-- totalhight = totalhight + vars[page].cd[j].sep
-					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
-						-- totalhight = totalhight + vars[page].cd[j].dist * 2
-					-- else --Distanz wird berechnet
-						-- icalc = icalc + 2
-					-- end
-				-- end
-			-- else -- Box ohne Trennzeichen
-				-- if vars[page].cd[j].dist > -9 then    -- Distanz angegeben
-					-- totalhight = totalhight + vars[page].cd[j].dist
-				-- else --Distanz wird berechnet
-					-- icalc = icalc + 1
-				-- end
-			-- end
-		-- end
-	-- end
 
-	-- ycalc = math.floor((159 - totalhight) / (icalc + iRaender))
-		
-	-- for i,j in ipairs(drawcolumn) do
-		-- if vars[page].cd[j].dist == -9 then 
-			-- vars[page].cd[j].distdraw = ycalc
-			-- if i == 1 then
-				-- vars[page].cd[j].distdraw = (159-totalhight-icalc*ycalc)/2
-			-- end
-		-- end
-	-- end
-	-- collectgarbage()
-	-- return ycalc, drawcolumn
--- end
 
 local function calcDistance(page,column)
 	local totalhight = 0
@@ -283,9 +274,9 @@ local function calcDistance(page,column)
 	local yborder = 6
 	local ybd2 = 3  -- yborder / 2
 	local dcol = {}    -- drawcolumn
-	-- dcol.order -- Reihenfolge der Box
-	-- dcol.yStart -- Start der Box
-	-- dcol.Sep  -- Tatsächlich gezeichneter Seperator
+	-- dcol.order - Reihenfolge der Box
+	-- dcol.yStart - Start der Box
+	-- dcol.Sep  - Tatsächlich gezeichneter Seperator
 	local yStart = 159   -- Start der Box
 	local distO = {} -- Original Distanz
 	local count = {}
@@ -369,169 +360,6 @@ local function calcDistance(page,column)
 	collectgarbage()
 	return ycalc, dcol
 end
-
-	-- for i,j in ipairs(column) do
-		-- if vars.cd[j] then 
-			-- if vars.cd[j].visible then table.insert(drawcolumn,1,j) end
-		-- else
-			-- table.remove(column,i)
-		-- end
-	-- end
-	
-	-- if #drawcolumn > 0 then	
-		-- for i,j in ipairs(drawcolumn) do
-			-- cd[j].sepdraw = nil
-		-- end
-		-- cd[drawcolumn[1]].sepdraw = 0
-		-- for i,j in ipairs(drawcolumn) do
-			-- totalhight = totalhight + vars.cd[j].y			
-			-- if not cd[j].sepdraw then
-				-- cd[j].sepdraw = cd[j].sep
-			-- end
-			-- if cd[j].sep < 0 then -- Box mit Rand
-				-- totalhight = totalhight + yborder
-				-- if i-cd[j].sep <= #drawcolumn then
-					-- cd[drawcolumn[i-cd[j].sep]].sepdraw = 0
-				-- end
-				-- if cd[j].sep < -1 and cd[drawcolumn[math.min(i-cd[j].sep,#drawcolumn)]].sep > -1 then 
-					-- totalhight = totalhight + ybd2
-				-- end
-			-- end	
-			-- local k = 1
-			-- if cd[j].sepdraw > 0 then -- Box mit Trennzeichen
-				-- k = 2
-			-- end
-			-- totalhight = totalhight + cd[j].sepdraw
-			-- if cd[j].dist > -9 then  -- Distanz angegeben
-				-- totalhight = totalhight + cd[j].dist * k
-			-- else --Distanz wird berechnet
-				-- icalc = icalc + k
-			-- end
-		-- end
-
-		-- ycalc = math.floor((158 - totalhight) / icalc)
-		
-		-- for i,j in ipairs(drawcolumn) do
-			-- if cd[j].dist == -9 then 
-				-- distdraw[i] = ycalc
-			-- else
-				-- distdraw[i] = cd[j].dist
-			-- end
-			-- cd[j].yStart = 0
-			-- cd[j].yBox = vars.cd[j].y + yborder
-		-- end		
-		
-		-- if cd[drawcolumn[1]].dist == -9 then
-			-- distdraw[1] = (yStart-totalhight-(icalc-2)*ycalc)/2
-		-- end
-		
-		-- for i,j in ipairs(drawcolumn) do
-			-- ySep = yStart - distdraw[i] + cd[j].yStart
-			-- yStart = ySep - vars.cd[j].y
-			-- if cd[j].sep < 0 then
-				-- yStart = yStart - ybd2
-				-- local y = 0
-				-- local sep = -1
-				-- for k = i+1,math.min(i-1-cd[j].sep,#drawcolumn) do
-					-- y = y + vars.cd[drawcolumn[k]].y + distdraw[k] 
-					-- sep = cd[drawcolumn[k]].sep
-					-- if  sep < 0 then 
-						-- y = y + yborder
-					-- elseif cd[drawcolumn[k]].sepdraw > 0 then
-						-- y = y + sep + distdraw[k] 
-					-- end
-				-- end	
-				-- if sep > -1 then y = y + ybd2 end
-				-- cd[j].yBox = cd[j].yBox + y
-				-- cd[j].ySep = ySep - cd[j].yBox
-				-- cd[j].yStart = yStart
-				-- if cd[j].sep < -1 and i-cd[j].sep <= #drawcolumn then
-					-- if cd[drawcolumn[i-cd[j].sep]].sep > -1 then
-						-- cd[drawcolumn[i-cd[j].sep]].yStart = - ybd2
-					-- end
-				-- end
-				-- yStart = yStart - ybd2
-			-- else
-				-- if cd[j].sepdraw > 0 then 
-					-- yStart = yStart - cd[j].sep - distdraw[i]
-				-- end	
-				-- cd[j].ySep = ySep - cd[j].sep
-				-- cd[j].yStart = yStart
-			-- end
-		-- end	
-		-- vars[page].cd = cd	
-	-- end	
-
--- from top to down:
-
--- local function calcDistance(page,column)
-	-- local totalhight = 0
-	-- local icalc = 0
-	-- local ycalc = 0
-	-- local yborder = 6
-	-- local iRaender = 2
-	-- local drawcolumn = {}
-	
-	-- for i,j in ipairs(column) do
-		-- if vars.cd[j] then 
-			-- if vars.cd[j].visible then table.insert(drawcolumn,j) end
-		-- else
-			-- table.remove(column,i)
-		-- end
-	-- end
-	
-	-- for i,j in ipairs(drawcolumn) do
-		-- totalhight = totalhight + vars.cd[j].y
-		-- vars[page].cd[j].sepdraw = vars[page].cd[j].sep
-		-- vars[page].cd[j].distdraw = vars[page].cd[j].dist
-		-- if vars[page].cd[j].sep < 0 then 
-			-- totalhight = totalhight + yborder
-		-- end
-		-- if i < #drawcolumn then
-			-- if vars[page].cd[j].sep > 0 then -- Box mit Trennzeichen
-				-- if vars[page].cd[drawcolumn[i + 1]].sep == -1 then   -- nachfolgend hat eine Box
-					-- vars[page].cd[j].sepdraw = 0
-					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
-						-- totalhight = totalhight + vars[page].cd[j].dist
-					-- else --Distanz wird berechnet
-						-- icalc = icalc + 1
-					-- end
-				-- else  -- nachfolgend hat keine Box
-					-- totalhight = totalhight + vars[page].cd[j].sep
-					-- if vars[page].cd[j].dist > -9 then  -- Distanz angegeben
-						-- totalhight = totalhight + vars[page].cd[j].dist * 2
-					-- else --Distanz wird berechnet
-						-- icalc = icalc + 2
-					-- end
-				-- end
-			-- else -- Box ohne Trennzeichen
-				-- if vars[page].cd[j].dist > -9 then    -- Distanz angegeben
-					-- totalhight = totalhight + vars[page].cd[j].dist
-				-- else --Distanz wird berechnet
-					-- icalc = icalc + 1
-				-- end
-			-- end
-		-- else
-			-- if vars[page].cd[j].dist > -9 then
-				-- totalhight = totalhight + vars[page].cd[j].dist
-				-- iRaender = 1
-			-- end
-			-- vars[page].cd[j].sepdraw = 0
-		-- end
-	-- end
-
-	-- ycalc = math.floor((160 - totalhight) / (icalc + iRaender))
-	
-	-- for i,j in ipairs(drawcolumn) do
-		-- if vars[page].cd[j].dist == -9 then 
-			-- vars[page].cd[j].distdraw = ycalc
-		-- end
-	-- end
-	-- local yStart = math.floor((160 - totalhight - icalc * ycalc) / iRaender)
-
-	-- collectgarbage()
-	-- return  yStart, ycalc, drawcolumn
--- end
 
 
 local function load_txt(page)
@@ -669,9 +497,9 @@ local function saveOrder(page)
 end
 
 local function loadBat()
-	local j = 1
 	vars.Akkus = {}
 	vars.AkkusID = {}
+	local Atemp = {}
 	local file = io.readall("Apps/"..vars.appName.."/Akkus.jsn")
 	if file then
 		local obj = json.decode(file)
@@ -679,9 +507,34 @@ local function loadBat()
 			vars.Akkus = obj
 		end
 	end
+	
 	for i,j in ipairs(vars.Akkus) do
 		vars.AkkusID[math.floor(j.ID)]= i
+		j.ID = math.floor(j.ID)
 	end
+	
+	if not vars.AkkusID[0] then
+		Atemp.ID = 0
+		Atemp.usedCapacity = 0
+		Atemp.Ah = 0
+		Atemp.Capacity = 0
+		Atemp.iCells = 1
+		Atemp.Name = ""
+		Atemp.batC = 0
+		Atemp.Cycl = 0
+		table.insert(vars.Akkus,Atemp)
+		vars.AkkusID[0] = #vars.Akkus
+	end
+	
+	if not vars.AkkusID[vars.config.Akku1ID] then
+		vars.config.Akku1ID = 0
+	end
+	if not vars.AkkusID[vars.config.Akku2ID] then
+		vars.config.Akku2ID = 0
+	end
+	vars.Akku1 = vars.AkkusID[vars.config.Akku1ID]
+	vars.Akku2 = vars.AkkusID[vars.config.Akku2ID]
+
 	collectgarbage()
 end
 
@@ -755,6 +608,10 @@ local function loadConfig()
 			end
 		end
 		
+		vars.senslbl["batC_sens"] = nil
+		vars.senslbl["batCap_sens"] = nil
+		vars.senslbl["batCells_sens"] = nil
+		
 		for i,config in pairs(obj[1]) do
 			vars.config[i] = config
 			system.pSave(i,config)
@@ -768,7 +625,16 @@ local function loadConfig()
 		saveConfig()
 	end
 	vars.configName = ""
-	dbdis_tank_volume = vars.config.tank_volume
+	dbdis_tank_volume = vars.config.tank_volume1
+	
+	if not vars.AkkusID[vars.config.Akku1ID] then
+		vars.config.Akku1ID = 0
+	end
+	if not vars.AkkusID[vars.config.Akku2ID] then
+		vars.config.Akku2ID = 0
+	end
+	vars.Akku1 = vars.AkkusID[vars.config.Akku1ID]
+	vars.Akku2 = vars.AkkusID[vars.config.Akku2ID]
 	collectgarbage()
 end
 
@@ -956,12 +822,14 @@ local function init(code1)
 	end
 	
 	--46 Sensoren
-	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens", "batCap_sens", "batCells_sens", "batC_sens"} --10
+	senslbls.eDrive = {"battery_voltage_sens", "motor_current_sens", "used_capacity_sens", "bec_current_sens", "pwm_percent_sens", "throttle_sens", "batID_sens"} --7
 	senslbls.fuelDrive = {"remaining_fuel_percent_sens", "pump_voltage_sens", "status_sens"} --3
 	senslbls.Rx = {"U1_sens", "U2_sens", "I1_sens", "I2_sens", "UsedCap1_sens", "UsedCap2_sens", "fet_temp_sens", "OverI_sens"} --8
 	senslbls.mixed = {"rotor_rpm_sens", "Temp_sens", "altitude_sens", "vario_sens", "speed_sens", "vibes_sens", "ax_sens", "ay_sens", "az_sens"} --9
 	senslbls.Muli = {"checkedCells_sens", "deltaVoltage_sens"} --2
-	senslbls.secondEngine = {"status2_sens", "Temp2_sens"} --2
+	senslbls.secondEngine = {"battery_voltage2_sens", "motor_current2_sens", "used_capacity2_sens", "remaining_fuel_percent2_sens", "rpm2_sens", "Temp2_sens", "batID2_sens", "status2_sens"} --5
+	-- not used anymore:  "batCap_sens", "batCells_sens", "batC_sens"
+	
 	for i=1,6 do 
 		table.insert(senslbls.Muli,"weakCell_sens"..i)
 		table.insert(senslbls.Muli,"weakVoltage_sens"..i)
@@ -981,7 +849,6 @@ local function init(code1)
 			vars.drawVal[senslbl].valid = true
 		end
 	end
-
 		
 	vars.deviceId = system.pLoad("deviceId", 0)	-- remember last selectet device
 	vars.catsel = system.pLoad("catsel", 1) 		-- selection of sensor category
@@ -995,14 +862,18 @@ local function init(code1)
     vars.cd.Rx2Values = {y = 29, sensors = {}}	-- Rx2 values
     vars.cd.RxBValues = {y = 29, sensors = {}}	-- RxB values  
 	vars.cd.RPM = {y = 37, sensors = {"rotor_rpm_sens"}}    		-- rpm
+	vars.cd.RPM_2 = {y = 37, sensors = {"rpm2_sens"}}    		-- rpm
 	vars.cd.Altitude = {y = 17, sensors = {"altitude_sens"}}   		-- altitude
 	vars.cd.Speed = {y = 17, sensors = {"speed_sens"}}   		-- speed
 	vars.cd.Vario = {y = 18, sensors = {"vario_sens"}}   		-- vario
 	vars.cd.Status = {y = 12, sensors = {"status_sens"}}    	-- Status1
 	vars.cd.Status2 = {y = 12, sensors = {"status2_sens"}}    	-- Status1
-	vars.cd.Volt_per_Cell = {y = 27, sensors = {"battery_voltage_sens"}} 			-- battery voltage
+	vars.cd.Volt_per_Cell = {y = 25, sensors = {"battery_voltage_sens"}} 			-- battery voltage
+	vars.cd.Volt_per_Cell_2 = {y = 25, sensors = {"battery_voltage2_sens"}} 			-- battery voltage
 	vars.cd.UsedCapacity = {y = 35, sensors = {"used_capacity_sens"}} 	-- used capacity
+	vars.cd.UsedCapacity_2 = {y = 35, sensors = {"used_capacity2_sens"}} 	-- used capacity
 	vars.cd.Current = {y = 17, sensors = {"motor_current_sens"}}   		-- Current
+	vars.cd.Current_2 = {y = 17, sensors = {"motor_current2_sens"}}   		-- Current
 	vars.cd.Pump_voltage = {y = 18, sensors = {"pump_voltage_sens"}}    -- Pump voltage
 	vars.cd.I_BEC = {y = 17, sensors = {"bec_current_sens"}}     		-- IBEC
 	vars.cd.Temp = {y = 17, sensors = {"Temp_sens"}}      		-- Temperature 1
@@ -1032,14 +903,18 @@ local function init(code1)
     vars[0].cd.Rx2Values = {sep = 2, dist = -9}	-- Rx2 values
     vars[0].cd.RxBValues = {sep = 2, dist = -9}	-- RxB values  
 	vars[0].cd.RPM = {sep = 2, dist = -9}    		-- rpm
+	vars[0].cd.RPM_2 = {sep = 2, dist = -9}    		-- rpm
 	vars[0].cd.Altitude = {sep = 1, dist = -9}   		-- altitude
 	vars[0].cd.Speed = {sep = 1, dist = -9}   		-- speed
 	vars[0].cd.Vario = {sep = 2, dist = -9}   		-- vario
 	vars[0].cd.Status = {sep = 1, dist = -9}    	-- Status1
 	vars[0].cd.Status2 = {sep = 1, dist = -9}    	-- Status1
 	vars[0].cd.Volt_per_Cell = {sep = 2, dist = -9} 			-- battery voltage
+	vars[0].cd.Volt_per_Cell_2 = {sep = 2, dist = -9} 			-- battery voltage
 	vars[0].cd.UsedCapacity = {sep = -1, dist = -9} 	-- used capacity
+	vars[0].cd.UsedCapacity_2 = {sep = -1, dist = -9} 	-- used capacity
 	vars[0].cd.Current = {sep = 2, dist = -9}   		-- Current
+	vars[0].cd.Current_2 = {sep = 2, dist = -9}   		-- Current
 	vars[0].cd.Pump_voltage = {sep = 1, dist = -9}    -- Pump voltage
 	vars[0].cd.I_BEC = {sep = 1, dist = -9}     		-- IBEC
 	vars[0].cd.Temp = {sep = 1 , dist = -9}      		-- Temperature 1
@@ -1061,7 +936,7 @@ local function init(code1)
 	
 	vars[0].leftcolumn = {"TotalCount", "FlightTime", "EngineTime", "Rx1Values", "RPM", "Altitude", "Vario", "EngineOff", "Status"} --9
 	vars[0].rightcolumn = {"Volt_per_Cell", "UsedCapacity", "Current", "Pump_voltage", "I_BEC", "Temp", "FET_Temp", "Throttle", "PWM", "C1_and_I1", "C2_and_I2", "U1_and_Temp", "U2_and_OI", "Status2"} --14
-	vars[0].notused = {"Speed", "Rx2Values", "RxBValues", "U1_and_I1", "U2_and_I2", "used_Cap1", "used_Cap2", "Temp_2", "weakest_Cell", "Vibes", "ax_ay_az"} --11
+	vars[0].notused = {"Speed", "Rx2Values", "RxBValues", "U1_and_I1", "U2_and_I2", "used_Cap1", "used_Cap2", "Temp_2", "RPM_2", "Volt_per_Cell_2","UsedCapacity_2", "Current_2", "weakest_Cell", "Vibes", "ax_ay_az"} --13
 	
 	for i,j in pairs(vars[0].cd) do
 		j.col = 0
@@ -1089,8 +964,9 @@ local function init(code1)
 		end		
 	end
 	
-	vars.config.tank_volume = system.pLoad("tank_volume",0)
-	dbdis_tank_volume = vars.config.tank_volume
+	vars.config.tank_volume1 = system.pLoad("tank_volume1",0)
+	dbdis_tank_volume = vars.config.tank_volume1
+	vars.config.tank_volume2 = system.pLoad("tank_volume2",0)
 	vars.config.voltage_alarm_voice = system.pLoad("voltage_alarm_voice", "...")
 	vars.config.capacity_alarm_voice = system.pLoad("capacity_alarm_voice", "...")
 	vars.config.capacity_alarm_voice2 = system.pLoad("capacity_alarm_voice2", "...")
@@ -1103,6 +979,7 @@ local function init(code1)
 	vars.config.Akku2ID = system.pLoad("Akku2ID", 0)
 	vars.config.gyChannel = system.pLoad("gyChannel", 17) -- going to form only	
 	vars.config.gyro_output = system.pLoad("gyro_output", 0) -- coming from form only	
+	vars.config.rpm2_faktor = system.pLoad("rpm2_faktor", 100)
 	
 	-- Schalter:
 	file = io.readall("Apps/"..vars.appName.."/"..vars.model.."_config.jsn", "r") 
