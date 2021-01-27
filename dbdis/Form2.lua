@@ -218,6 +218,8 @@ local function setup(varstemp, pagetemp)
 end
 
 local function saveAkkus()
+	local ID1 = vars.Akkus[vars.Akku1].ID
+	local ID2 = vars.Akkus[vars.Akku2].ID
 	local j = 1
 	for i = 1, #vars.Akkus do
 		if vars.Akkus[i].ID ~= -1.0 then
@@ -236,6 +238,24 @@ local function saveAkkus()
 	for i,j in ipairs(vars.Akkus) do
 		vars.AkkusID[math.floor(j.ID)]= i
 	end
+	
+	if vars.AkkusID[ID1] then
+		vars.Akku1 = vars.AkkusID[ID1]
+	else
+		vars.Akku1 = vars.AkkusID[0]
+	end
+	if vars.AkkusID[ID2] then
+		vars.Akku2 = vars.AkkusID[ID2]
+	else
+		vars.Akku2 = vars.AkkusID[0]
+	end	
+	if not vars.AkkusID[vars.config.Akku1ID] then
+		vars.config.Akku1ID = 0
+	end
+	if not vars.AkkusID[vars.config.Akku2ID] then
+		vars.config.Akku2ID = 0
+	end
+	
 	local obj = json.encode(vars.Akkus)
 	local file = io.open("Apps/"..vars.appName.."/Akkus.jsn", "w+")
 	if file then
@@ -274,7 +294,6 @@ local function setupBat(varstemp)
 		vars.Akkus[i].iCells = 1
 		vars.Akkus[i].Cycl = 0
 		vars.Akkus[i].Ah = 0
-		vars.Akkus[i].lastVoltage = 0
 		vars.Akkus[i].usedCapacity = 0
 		saveAkkus()
 	end
@@ -287,54 +306,55 @@ local function setupBat(varstemp)
 	-- end
 	
 	for i, j in ipairs(vars.Akkus) do
-		form.addSpacer(320,4)	
-		form.addRow(5)
-		form.addIntbox(j.ID, -1, 999, -1, 0, 1,
-								function (value)
-									j.ID = value		
-									saveAkkus()
-								end, {width = 52, font = FONT_BOLD})
-		form.addTextbox(j.Name, 9,
-								function (value)
-									j.Name = value
-									saveAkkus()
-								end, {width = 105})	
-								
-		form.addIntbox(j.iCells, 1, 14, 1, 0, 1,
-								function (value)
-									j.iCells = value
-									saveAkkus()
-								end, {width = 50} )
+		if j.ID ~= 0 then
+			form.addSpacer(320,4)	
+			form.addRow(5)
+			form.addIntbox(j.ID, -1, 999, -1, 0, 1,
+									function (value)
+										j.ID = value		
+										saveAkkus()
+									end, {width = 52, font = FONT_BOLD})
+			form.addTextbox(j.Name, 9,
+									function (value)
+										j.Name = value
+										saveAkkus()
+									end, {width = 105})	
+									
+			form.addIntbox(j.iCells, 1, 14, 1, 0, 1,
+									function (value)
+										j.iCells = value
+										saveAkkus()
+									end, {width = 50} )
 
-		form.addIntbox(j.Capacity, 0, 32767, 0, 0, 10,
-								function (value)
-									j.Capacity = value
-									saveAkkus()
-								end, {width = 60} )
-		form.addIntbox(j.batC, 0, 90, 0, 0, 5,
-								function (value)
-									j.batC = value
-									saveAkkus()
-								end, {width = 50})
-								
-		form.addRow(3)			
-	
-		form.addIntbox(j.Cycl, 0, 9999, 0, 0, 1,
-								function (value)
-									j.Cycl = value
-									saveAkkus()
-								end, {width = 95, label = vars.trans.cycles, font = FONT_MINI})	
-		form.addIntbox(math.floor(j.usedCapacity), 0, 9999, 0, 0, 10,
-										function (value)
-											j.usedCapacity = value
-											saveAkkus()
-										end, {label=" mAh", width = 112, font = FONT_MINI})					
-		form.addIntbox(math.floor(j.Ah), 0, 9999, 0, 0, 1,
-								function (value)
-									j.Ah = value
-									saveAkkus()
-								end, {label=" Ah", width = 115, font = FONT_MINI})
-				
+			form.addIntbox(j.Capacity, 0, 32767, 0, 0, 10,
+									function (value)
+										j.Capacity = value
+										saveAkkus()
+									end, {width = 60} )
+			form.addIntbox(j.batC, 0, 90, 0, 0, 5,
+									function (value)
+										j.batC = value
+										saveAkkus()
+									end, {width = 50})
+									
+			form.addRow(3)			
+		
+			form.addIntbox(j.Cycl, 0, 9999, 0, 0, 1,
+									function (value)
+										j.Cycl = value
+										saveAkkus()
+									end, {width = 95, label = vars.trans.cycles, font = FONT_MINI})	
+			form.addIntbox(math.floor(j.usedCapacity), 0, 9999, 0, 0, 10,
+											function (value)
+												j.usedCapacity = value
+												saveAkkus()
+											end, {label=" mAh", width = 112, font = FONT_MINI})					
+			form.addIntbox(math.floor(j.Ah), 0, 9999, 0, 0, 1,
+									function (value)
+										j.Ah = value
+										saveAkkus()
+									end, {label=" Ah", width = 115, font = FONT_MINI})
+		end
 	end
 	form.addSpacer(320,5)
 	form.addRow(1)

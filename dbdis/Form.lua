@@ -64,6 +64,7 @@ local function setup(varstemp, senslbls)
 	local temp
 	local dateinamen = {}
 	local confignames = {["_config.jsn"]=true}
+	local akku1, akku2
 	
 	
 	local function saveFlights()
@@ -270,34 +271,70 @@ local function setup(varstemp, senslbls)
 							
 	form.addRow(2)
 	form.addLabel({label="Akku 1 ID:", width=210})
-	form.addIntbox(vars.config.Akku1ID, 0, 999, 0, 0, 1,
+	akku1 = form.addIntbox(vars.config.Akku1ID, 0, 999, 0, 0, 1,
 						function (value)
-							configChanged("Akku1ID", value)
+							if vars.AkkusID[value] then
+								vars.Akku1 = vars.AkkusID[value]
+								configChanged("Akku1ID", value)
+							else
+								vars.Akku1 = vars.Akku1 + 1
+								if vars.Akku1 > #vars.Akkus then 
+									vars.Akku1 = 1 
+								end
+								form.setValue(akku1, vars.Akkus[vars.Akku1].ID)
+								configChanged("Akku1ID", vars.Akkus[vars.Akku1].ID)
+							end
 						end)
 	
 	form.addRow(2)
 	form.addLabel({label="Akku 2 ID:", width=210})
-	form.addIntbox(vars.config.Akku2ID, 0, 999, 0, 0, 1,
+	akku2 = form.addIntbox(vars.config.Akku2ID, 0, 999, 0, 0, 1,
 						function (value)
-							configChanged("Akku2ID", value)
+							if vars.AkkusID[value] then
+								vars.Akku2 = vars.AkkusID[value]
+								configChanged("Akku2ID", value)
+							else
+								vars.Akku2 = vars.Akku2 + 1
+								if vars.Akku2 > #vars.Akkus then 
+									vars.Akku2 = 1 
+								end
+								form.setValue(akku2, vars.Akkus[vars.Akku2].ID)
+								configChanged("Akku2ID", vars.Akkus[vars.Akku2].ID)
+							end
 						end)
+						
+	form.addRow(2)
+	form.addLabel({label=vars.trans.tank_volume1, width=210})
+	form.addIntbox(vars.config.tank_volume1, 0, 9900, 0, 0, 10,
+						function (value)
+							dbdis_tank_volume = value
+							configChanged("tank_volume1", value)
+							if vars.config.tank_volume2 == 0 then 
+								vars.tankRatio2 = 1
+							else
+								vars.tankRatio2 = value / vars.config.tank_volume2
+							end
+						end, {label=" ml"} )
+						
+	form.addRow(2)
+	form.addLabel({label=vars.trans.tank_volume2, width=210})
+	form.addIntbox(vars.config.tank_volume2, 0, 9900, 0, 0, 10,
+						function (value)
+							if value == 0 then 
+								vars.tankRatio2 = 1
+							else
+								vars.tankRatio2 = vars.config.tank_volume1 / value
+							end
+							configChanged("tank_volume2", value)
+						end, {label=" ml"} )
 						
 	form.addRow(2)
 	form.addLabel({label=vars.trans.akkuSW, width=210})-- Switch for 2nd Battery
 	switch.akkuSw = form.addInputbox(vars.switches.akkuSw,false,
 						function (value)
+							vars.changeSens = 1
 							switchChanged("akkuSw", value)
 						end)
-					
-	--if not Calca_dispGas then
-		form.addRow(2)
-		form.addLabel({label=vars.trans.tank_volume, width=210})
-		form.addIntbox(vars.config.tank_volume, 0, 9900, 0, 0, 10,
-							function (value)
-								dbdis_tank_volume = value
-								configChanged("tank_volume", value)
-							end, {label=" ml"} )
-	--end
 
 							
 	form.addRow(2)
@@ -370,6 +407,13 @@ local function setup(varstemp, senslbls)
 
 	form.addRow(1)
 	form.addLabel({label=vars.trans.label5,font=FONT_BOLD}) -- Gyrokanal
+	
+	form.addRow(2)
+	form.addLabel({label=vars.trans.rpm2_faktor, width=210})
+	form.addIntbox(vars.config.rpm2_faktor, 1, 10000, 100, 2, 1,
+						function (value)
+							configChanged("rpm2_faktor", value)
+						end )
 
 	form.addRow(2)
 	form.addLabel({label=vars.trans.channel, width=210})
