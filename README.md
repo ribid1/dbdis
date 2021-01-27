@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **3.37**
+Latest Version: **3.40**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -151,4 +151,9 @@ V3.37 - Muli, Muli EX and 6x cell voltage sensorvalues added
   - dbdis_config.jsn for global settings added  
   - background color for edged boxes added
   - a 3rd temperatur sensorvalue added and temp sensorvalues new sortet, please pay attention!
-  - manual updated
+  - manual updated  
+V3.40 - Battery selection is limited to the batteries in the database  
+		  - In the flightbook max. current of the flight is saved  
+		  - A second tank volume is added  
+		  - Sensor values for a second drive is added  
+		  - A rpm factor for the RPM_2 box is added  
