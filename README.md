@@ -152,8 +152,10 @@ V3.37 - Muli, Muli EX and 6x cell voltage sensorvalues added
   - background color for edged boxes added
   - a 3rd temperatur sensorvalue added and temp sensorvalues new sortet, please pay attention!
   - manual updated  
-V3.40 - Battery selection is limited to the batteries in the database  
-		  - In the flightbook max. current of the flight is saved  
-		  - A second tank volume is added  
-		  - Sensor values for a second drive is added  
-		  - A rpm factor for the RPM_2 box is added  
+
+V3.40:  
+  - Battery selection is limited to the batteries in the database  
+  - In the flightbook max. current of the flight is saved  
+  - A second tank volume is added  
+  - Sensor values for a second drive is added  
+  - A rpm factor for the RPM_2 box is added  
