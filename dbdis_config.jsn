@@ -8,6 +8,8 @@
 "label_Temp":"Temp:",
 "label_Temp_2":"Temp 2:",
 "label_fet_Temp":"FET-Temp:",
+"label_RPM":"RPM:",
+"label_RPM_2":"RPM 2:",
 "color01":[255,150,0],
 "color02":[255,250,0],
 "color03":[210,255,0],
