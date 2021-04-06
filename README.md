@@ -161,6 +161,7 @@ V3.40:
   - A second tank volume is added  
   - Sensor values for a second drive is added  
   - A rpm factor for the RPM_2 box is added  
+   
 V3.41:  
   - Improvement if Seperator < -1 und Trennstrich  
   - Color of batteries and Tanks are driven by the usedCapacity boxes  
