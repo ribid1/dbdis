@@ -1,4 +1,5 @@
 local col1, col2, col3 = 0,0,0
+local colr, colg, colb
 local txtr,txtg,txtb
 local maxr, maxg, maxb
 local minr, ming, minb = 0,140,0
@@ -119,14 +120,14 @@ function drawfunc.drawBattery()
 			drawPercent(vars.remaining_capacity_percent1) 
 		end
 	else
-		lcd.setColor(0,220,0) --grün
+		lcd.setColor(colr,colg,colb) --grün
 		drawPercent(vars.remaining_capacity_percent1)
 	end
 
 	local chgYalarm = 147 - chgHalarm
 	local chgYalarm2 = 147 - chgHalarm2
 	  
-	lcd.setColor(0,220,0)
+	lcd.setColor(colr,colg,colb)
 	lcd.drawFilledRectangle(134, chgY, 51, chgH) --grün
 	lcd.setColor(250,250,0)
 	lcd.drawFilledRectangle(134, chgYalarm2, 51, chgHalarm2) --gelb
@@ -219,14 +220,14 @@ local function draw2Batteries(xleft, value, Akku, RfID)
 			drawPercent2(xleft,value) 
 		end
 	else
-		lcd.setColor(0,220,0) --grün
+		lcd.setColor(colr,colg,colb) --grün
 		drawPercent2(xleft,value)
 	end
 	
 	local chgYalarm = 157 - chgHalarm
 	local chgYalarm2 = 157 - chgHalarm2
 	  
-	lcd.setColor(0,220,0)
+	lcd.setColor(colr,colg,colb)
 	lcd.drawFilledRectangle(xleft, chgY, 24, chgH) --grün
 	lcd.setColor(250,250,0)
 	lcd.drawFilledRectangle(xleft, chgYalarm2, 24, chgHalarm2) --gelb
@@ -302,14 +303,14 @@ function drawfunc.drawTank()
 			drawPercent(vars.remaining_fuel_percent1) 
 		end
 	else
-		lcd.setColor(0,220,0) --grün
+		lcd.setColor(colr,colg,colb) --grün
 		drawPercent(vars.remaining_fuel_percent1)
 	end
 	
 	local chgYalarm = 157 - chgHalarm
 	local chgYalarm2 = 157 - chgHalarm2
 	  
-	lcd.setColor(0,220,0)
+	lcd.setColor(colr,colg,colb)
 	lcd.drawFilledRectangle(136, chgY, 26, chgH) --grün
 	lcd.setColor(250,250,0)
 	lcd.drawFilledRectangle(136, chgYalarm2, 26, chgHalarm2) --gelb
@@ -355,14 +356,14 @@ local function draw2Tanks(xleft, value, tank_volume)
 			drawPercent2(xleft,value) 
 		end
 	else
-		lcd.setColor(0,220,0) --grün
+		lcd.setColor(colr,colg,colb) --grün
 		drawPercent2(xleft,value)
 	end
 
 	local chgYalarm = 157 - chgHalarm
 	local chgYalarm2 = 157 - chgHalarm2
 	  
-	lcd.setColor(0,220,0)
+	lcd.setColor(colr,colg,colb)
 	lcd.drawFilledRectangle(xleft, chgY, 24, chgH) --grün
 	lcd.setColor(250,250,0)
 	lcd.drawFilledRectangle(xleft, chgYalarm2, 24, chgHalarm2) --gelb
@@ -391,7 +392,7 @@ function drawfunc.draw1stTank()
 	draw2Tanks(133,vars.remaining_fuel_percent1,vars.config.tank_volume1)
 end
 
-function drawfunc.draw2ndTank()
+function drawfunc.draw2ndTank()  
 	draw2Tanks(162,vars.remaining_fuel_percent2,vars.config.tank_volume2)
 end
 
@@ -1099,6 +1100,9 @@ local function showDisplay(page)
 	
 	-- middle
 	for i,j in ipairs(vars.middle) do
+		colr = vars.col[page][i][1]
+		colg = vars.col[page][i][2]
+		colb = vars.col[page][i][3]
 		drawfunc[j](i)
 	end
 	
@@ -1903,6 +1907,7 @@ local function loop()
 	if not vars.senslbl.remaining_fuel_percent_sens then
 		if Calca_dispGas then 
 			vars.Value.remaining_fuel_percent_sens = Calca_dispGas
+			calcfunc.remaining_fuel_percent_sens()
 		end
 	end
 	
