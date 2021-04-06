@@ -84,6 +84,10 @@
 		  - A second tank volume is added
 		  - Sensor values for a second drive is added
 		  - A rpm factor for the RPM_2 box is added
+	V3.41 - Improvement if Seperator < -1 und Trennstrich 
+		  - Color of batteries and Tanks are driven by the usedCapacity boxes
+		  - Improvement in combination with the CalCa-Gas App 
+
 
 
 --]]
@@ -137,7 +141,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.40"
+vars.Version = "3.41"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -267,6 +271,100 @@ local function boxvisible()
 end
 
 
+		-- local function calcDistanceold(page,column)
+			-- local totalhight = 0
+			-- local icalc = 1
+			-- local ycalc = 0
+			-- local yborder = 6
+			-- local ybd2 = 3  -- yborder / 2
+			-- local dcol = {}    -- drawcolumn
+			-- -- dcol.order - Reihenfolge der Box
+			-- -- dcol.yStart - Start der Box
+			-- -- dcol.Sep  - Tatsächlich gezeichneter Seperator
+			-- local yStart = 159   -- Start der Box
+			-- local distO = {} -- Original Distanz
+			-- local count = {}
+			-- local k,l = 0,0
+			
+			-- for i,j in ipairs(column) do
+				-- if vars.cd[j] then 
+					-- if vars.cd[j].visible then 
+						-- table.insert(dcol,1,{})
+						-- dcol[1].order = j
+					-- end
+				-- else
+					-- table.remove(column,i)
+				-- end
+			-- end
+			
+			-- if #dcol > 0 then	
+				-- for i,j in ipairs(dcol) do
+					-- j.SepO = vars[page].cd[j.order].sep
+					-- j.Sep = j.SepO
+					-- distO[i] = vars[page].cd[j.order].dist
+					-- count[i] = true
+				-- end
+				-- dcol[1].Sep = 0
+				-- for i,j in ipairs(dcol) do
+					-- totalhight = totalhight + vars.cd[j.order].y			
+					-- if j.SepO < 0 then -- Box mit Rand
+						-- totalhight = totalhight + yborder
+						-- if i-j.SepO <= #dcol then
+							-- dcol[i-j.SepO].Sep = 0
+						-- end
+						-- l = math.min(i-1-j.SepO,#dcol)
+						-- if dcol[l].SepO > -1 and count[l] then
+							-- count[l] = false
+							-- totalhight = totalhight + ybd2
+						-- end
+					-- end	
+					-- k = 1
+					-- if j.Sep > 0 then -- Box mit Trennzeichen
+						-- k = 2
+						-- totalhight = totalhight + j.Sep
+					-- end
+					
+					-- if distO[i] > -9 then  -- Distanz angegeben
+						-- totalhight = totalhight + distO[i] * k
+					-- else --Distanz wird berechnet
+						-- icalc = icalc + k
+					-- end
+				-- end
+				-- ycalc = math.floor((159 - totalhight) / icalc)
+				-- for i,j in ipairs(dcol) do
+					-- if distO[i] == -9 then 
+						-- dcol[i].ydist = ycalc
+					-- else
+						-- dcol[i].ydist = distO[i]
+					-- end
+					-- j.yStart = 0
+				-- end		
+				
+				-- if distO[1] == -9 then
+					-- dcol[1].ydist = math.floor((yStart-totalhight-(icalc-2)*ycalc)/2)
+				-- end
+				
+				-- for i,j in ipairs(dcol) do
+					-- yStart = yStart - dcol[i].ydist + j.yStart - vars.cd[j.order].y
+					-- if j.SepO < 0 then
+						-- yStart = yStart - ybd2
+						-- j.yStart = yStart
+						-- if j.SepO < -1 and i-j.SepO <= #dcol then
+							-- dcol[i-j.SepO].yStart = -ybd2
+						-- end
+						-- if i < #dcol then dcol[i+1].yStart = -ybd2 end
+					-- else
+						-- if j.Sep > 0 then 
+							-- yStart = yStart - j.SepO - dcol[i].ydist
+						-- end	
+						-- j.yStart = yStart
+					-- end
+				-- end		
+			-- end	
+			-- collectgarbage()
+			-- return ycalc, dcol
+		-- end
+
 local function calcDistance(page,column)
 	local totalhight = 0
 	local icalc = 1
@@ -279,7 +377,6 @@ local function calcDistance(page,column)
 	-- dcol.Sep  - Tatsächlich gezeichneter Seperator
 	local yStart = 159   -- Start der Box
 	local distO = {} -- Original Distanz
-	local count = {}
 	local k,l = 0,0
 	
 	for i,j in ipairs(column) do
@@ -298,20 +395,14 @@ local function calcDistance(page,column)
 			j.SepO = vars[page].cd[j.order].sep
 			j.Sep = j.SepO
 			distO[i] = vars[page].cd[j.order].dist
-			count[i] = true
 		end
 		dcol[1].Sep = 0
 		for i,j in ipairs(dcol) do
-			totalhight = totalhight + vars.cd[j.order].y			
+			totalhight = totalhight + vars.cd[j.order].y	-- Höhe der Box
 			if j.SepO < 0 then -- Box mit Rand
-				totalhight = totalhight + yborder
+				totalhight = totalhight + yborder  -- + unteren und oberen Rand
 				if i-j.SepO <= #dcol then
-					dcol[i-j.SepO].Sep = 0
-				end
-				l = math.min(i-1-j.SepO,#dcol)
-				if dcol[l].SepO > -1 and count[l] then
-					count[l] = false
-					totalhight = totalhight + ybd2
+					dcol[i-j.SepO].Sep = 0      -- Seperator der vorhergehenden Box wird auf 0 gesetzt
 				end
 			end	
 			k = 1
@@ -344,15 +435,14 @@ local function calcDistance(page,column)
 			yStart = yStart - dcol[i].ydist + j.yStart - vars.cd[j.order].y
 			if j.SepO < 0 then
 				yStart = yStart - ybd2
-				j.yStart = yStart
-				if j.SepO < -1 and i-j.SepO <= #dcol then
+				if i-j.SepO <= #dcol then  
 					dcol[i-j.SepO].yStart = -ybd2
 				end
-				if i < #dcol then dcol[i+1].yStart = -ybd2 end
+				j.yStart = yStart
 			else
 				if j.Sep > 0 then 
 					yStart = yStart - j.SepO - dcol[i].ydist
-				end	
+				end	  
 				j.yStart = yStart
 			end
 		end		
@@ -360,7 +450,6 @@ local function calcDistance(page,column)
 	collectgarbage()
 	return ycalc, dcol
 end
-
 
 local function load_txt(page)
 	local line
@@ -479,6 +568,13 @@ local function loadStartOrder()
 				vars[page].ycalcRight, vars[page].rightdrawcol = calcDistance(page,vars[page].rightcolumn)
 			end
 		end
+		-- bat colors
+		if vars[page].cd.UsedCapacity and vars.configG.color[vars[page].cd.UsedCapacity.col] then
+			vars.col[page][1] = vars.configG.color[vars[page].cd.UsedCapacity.col]
+		end
+		if vars[page].cd.UsedCapacity_2 and vars.configG.color[vars[page].cd.UsedCapacity_2.col] then
+			vars.col[page][2] = vars.configG.color[vars[page].cd.UsedCapacity_2.col]
+		end
 	end
 	collectgarbage()
 end
@@ -561,7 +657,6 @@ local function changed(page)
 	collectgarbage()
 end
 
-
 local function saveConfig()
 		local filename 
 		local senstxt = {}
@@ -582,7 +677,6 @@ local function saveConfig()
 		vars.changedConfig = 0
 		collectgarbage()
 end
-
 
 local function loadConfig()
 	local file
@@ -964,6 +1058,13 @@ local function init(code1)
 		end		
 	end
 	
+	vars.col = {}
+	vars.col[1] = {}   -- page = 1
+	vars.col[2] = {}   -- page = 2
+	vars.col[1][1] = {0,220,0} --grün
+	vars.col[1][2] = {0,220,0} --grün
+	vars.col[2][1] = {0,220,0} --grün
+	vars.col[2][2] = {0,220,0} --grün
 	vars.config.tank_volume1 = system.pLoad("tank_volume1",0)
 	dbdis_tank_volume = vars.config.tank_volume1
 	vars.config.tank_volume2 = system.pLoad("tank_volume2",0)
