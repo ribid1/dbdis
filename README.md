@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **3.40**
+Latest Version: **3.41**
 
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
@@ -161,3 +161,7 @@ V3.40:
   - A second tank volume is added  
   - Sensor values for a second drive is added  
   - A rpm factor for the RPM_2 box is added  
+V3.41:  
+  - Improvement if Seperator < -1 und Trennstrich  
+  - Color of batteries and Tanks are driven by the usedCapacity boxes  
+  - Improvement in combination with the CalCa-Gas App 
