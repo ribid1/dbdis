@@ -166,5 +166,6 @@ V3.41:
   - Color of batteries and Tanks are driven by the usedCapacity boxes  
   - Improvement in combination with the CalCa-Gas App 
 
-V3.42 - Improvemtnt in combination with Jeti Assist (Sensor ID > 1)
-		  - Multiple pages of the Akku page
+V3.42:
+  - Improvemtnt in combination with Jeti Assist (Sensor ID > 1)  
+  - Multiple pages of the Akku page
