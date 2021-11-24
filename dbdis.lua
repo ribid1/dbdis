@@ -87,7 +87,8 @@
 	V3.41 - Improvement if Seperator < -1 und Trennstrich 
 		  - Color of batteries and Tanks are driven by the usedCapacity boxes
 		  - Improvement in combination with the CalCa-Gas App 
-
+	V3.42 - Improvemtnt in combination with Jeti Assist (Sensor ID > 1)
+		  - Multiple pages of the Akku page
 
 
 --]]
@@ -141,7 +142,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.41"
+vars.Version = "3.42"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -825,6 +826,9 @@ local function keyForm(key)
 		vars.addAkku = 1
 		form.preventDefault()
 		form.reinit(formID)	
+	elseif key == KEY_ENTER and formID == 4 then
+		Form2.scrollAkku()
+		form.reinit(formID)
 	elseif key == KEY_5 and (formID == 2 or formID == 3) then
 		Form2.moveLine()
 		form.preventDefault()
@@ -894,6 +898,7 @@ local function init(code1)
 
 
 	vars.addAkku = 0
+	vars.AkkuPage = 1
 	owner = system.getUserName()
 	vars.model = system.getProperty("Model")
 
