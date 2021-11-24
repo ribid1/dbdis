@@ -1,6 +1,7 @@
 local device_label_list = {}
 local device_id_list = {}
-local sensor_lists = {}
+local sensor_lists = {} --sensor_lists[1..nr. of device][1..nr. of sensor] = label and unit as string		
+local sensor_list_param = {}			
 local show
 local device_label
 local switchItem
@@ -10,18 +11,23 @@ local output_list = { "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9", "O10
 
 
 local function make_lists (deviceId)
-	local sensor, i
+	local sensor, i, idevices
 	if ( not device_id_list[1] ) then	-- sensors not yet checked or rebooted
 		vars.deviceIndex = 0
 		for i,sensor in ipairs(system.getSensors()) do
+			idevices = #sensor_lists
 			if (sensor.param == 0) then	-- new multisensor/device
 				device_label_list[#device_label_list + 1] = sensor.label	-- list presented in sensor select box
 				device_id_list[#device_id_list + 1] = sensor.id				-- to get id from if sensor changed, same numeric indexing
-				
 				if (sensor.id == deviceId) then
 					vars.deviceIndex = #device_id_list
 				end
-				sensor_lists[#sensor_lists + 1] = {}			-- start new param list only containing label and unit as string
+				idevices = idevices + 1
+				sensor_lists[idevices] = {}			-- start new param list only containing label and unit as string
+				sensor_lists[idevices][1] = "..."
+				sensor_list_param[idevices] = {}
+				sensor_list_param[idevices][1] = "..."
+				
 			else															-- subscript is number of param for current multisensor/device
 				device_label = false
 				for i in next, device_id_list do
@@ -35,13 +41,24 @@ local function make_lists (deviceId)
 					if (sensor.id == deviceId) then
 						vars.deviceIndex = #device_id_list
 					end
-					sensor_lists[#sensor_lists + 1] = {}
+					idevices = idevices + 1
+					sensor_lists[idevices] = {}
+					sensor_lists[idevices][1] = "..."
+					sensor_list_param[idevices] = {}
+					sensor_list_param[idevices][1] = "..."
 				end
-				sensor_lists[#sensor_lists][sensor.param] = sensor.label .. "  " .. sensor.unit	-- list presented in param select box
-				sensor_lists[#sensor_lists][sensor.param + 1] = "..."
+				
+				--sensor_lists[#sensor_lists][sensor.param] = sensor.label .. "  " .. sensor.unit	-- list presented in param select box
+				--sensor_lists[#sensor_lists][sensor.param + 1] = "..."
+				sensor_lists[idevices][#sensor_lists[idevices]] = sensor.label .. "  " .. sensor.unit	-- list presented in param select box
+				sensor_lists[idevices][#sensor_lists[idevices]+1] = "..."
+				sensor_list_param[idevices][#sensor_list_param[idevices]] = sensor.param
+				sensor_list_param[idevices][#sensor_list_param[idevices]+1] = "..."
+				
 			end
+			
 		end
-    device_label_list[#device_label_list + 1] = "..."
+		device_label_list[#device_label_list + 1] = "..."
 	end	
 end
 
@@ -138,7 +155,7 @@ local function setup(varstemp, senslbls)
 	form.addRow(2)
 	form.addLabel({label = vars.trans.labelp0, width=160})
 	
-	form.addSelectbox( device_label_list, vars.deviceIndex, true,
+	form.addSelectbox( device_label_list, vars.deviceIndex, true,        -- list of devices
 						function (value)
 							if ( not device_id_list[1] ) then	-- no device found
 								return
@@ -171,14 +188,17 @@ local function setup(varstemp, senslbls)
 					form.addRow(2) 	
 					form.addLabel({label = vars.trans[senslbl]})
 					show = true	
+					temp = 0
 					if vars.senslbl[senslbl] then
 						check_other_device(vars.senslbl[senslbl], vars.deviceId)
-						temp = vars.senslbl[senslbl][2]
-					else
-						temp = 0
+						for k,l in ipairs(sensor_list_param[vars.deviceIndex]) do
+							if l == vars.senslbl[senslbl][2] then temp = k end
+						end
+					-- else
+						-- temp = 0
 					end
 					
-					form.addSelectbox(sensor_lists[vars.deviceIndex], temp, true,
+					form.addSelectbox(sensor_lists[vars.deviceIndex], temp, true,    -- list of sensors
 									function (value)
 										vars.senslbl[senslbl] = {}
 										if sensor_lists[vars.deviceIndex][value] == "..." then 
@@ -186,7 +206,7 @@ local function setup(varstemp, senslbls)
 											vars.senslbl[senslbl] = nil
 										else 
 											vars.senslbl[senslbl][1] = vars.deviceId
-											vars.senslbl[senslbl][2] = value									
+											vars.senslbl[senslbl][2] = sensor_list_param[vars.deviceIndex][value]
 										end
 										system.pSave(senslbl, vars.senslbl[senslbl])
 										vars.changeSens = 1

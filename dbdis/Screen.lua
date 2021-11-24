@@ -409,8 +409,11 @@ function drawfunc.TotalCount() --Total flight Time
 		
 		std = math.floor(vars.totalFlighttime / 3600)
 		min = (vars.totalFlighttime % 3600) / 60
-		sec = vars.totalFlighttime % 60
-		lcd.drawText(xStart + 122 - lcd.getTextWidth(FONT_MINI, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_MINI) -- total Flight time	
+		--sec = vars.totalFlighttime % 60
+		
+		--lcd.drawText(xStart + 122 - lcd.getTextWidth(FONT_MINI, string.format("%0dh %02d' %02d\"", std, min, sec)), y, string.format("%0dh %02d' %02d\"",std, min, sec), FONT_MINI) -- total Flight time	
+		lcd.drawText(xStart + 120 - lcd.getTextWidth(FONT_MINI, string.format("%0dh %02d'", std, min)), y, string.format("%0dh %02d'",std, min), FONT_MINI) -- total Flight time	
+
 	end
 end
 

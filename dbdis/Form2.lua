@@ -265,6 +265,16 @@ local function saveAkkus()
 	collectgarbage()
 end
 
+local function scrollAkku()
+	if form.getFocusedRow() == 1 then 
+		vars.AkkuPage = vars.AkkuPage - 1
+		if vars.AkkuPage == 0 then vars.AkkuPage = -math.floor(-(#vars.Akkus-1) / 17) end
+	else
+		vars.AkkuPage = vars.AkkuPage + 1
+		if vars.AkkuPage > -math.floor(-(#vars.Akkus-1) / 17) then vars.AkkuPage = 1 end
+	end
+end
+
 local function setupBat(varstemp)
 	local i
 	local IDmax
@@ -305,55 +315,57 @@ local function setupBat(varstemp)
 		-- --form.addLabel({label = "----------------------------------------------------------", enabled = false})
 	-- end
 	
-	for i, j in ipairs(vars.Akkus) do
-		if j.ID ~= 0 then
-			form.addSpacer(320,4)	
-			form.addRow(5)
-			form.addIntbox(j.ID, -1, 999, -1, 0, 1,
-									function (value)
-										j.ID = value		
-										saveAkkus()
-									end, {width = 52, font = FONT_BOLD})
-			form.addTextbox(j.Name, 9,
-									function (value)
-										j.Name = value
-										saveAkkus()
-									end, {width = 105})	
-									
-			form.addIntbox(j.iCells, 1, 14, 1, 0, 1,
-									function (value)
-										j.iCells = value
-										saveAkkus()
-									end, {width = 50} )
+	for i, j in ipairs(vars.Akkus) do	
+		if i-1 > (vars.AkkuPage-1)*17 and i-1 <= (vars.AkkuPage*17) then
+			if j.ID ~= 0 then
+				form.addSpacer(320,4)	
+				form.addRow(5)
+				form.addIntbox(j.ID, -1, 999, -1, 0, 1,
+										function (value)
+											j.ID = value		
+											saveAkkus()
+										end, {width = 52, font = FONT_BOLD})
+				form.addTextbox(j.Name, 9,
+										function (value)
+											j.Name = value
+											saveAkkus()
+										end, {width = 105})	
+										
+				form.addIntbox(j.iCells, 1, 14, 1, 0, 1,
+										function (value)
+											j.iCells = value
+											saveAkkus()
+										end, {width = 50} )
 
-			form.addIntbox(j.Capacity, 0, 32767, 0, 0, 10,
-									function (value)
-										j.Capacity = value
-										saveAkkus()
-									end, {width = 60} )
-			form.addIntbox(j.batC, 0, 90, 0, 0, 5,
-									function (value)
-										j.batC = value
-										saveAkkus()
-									end, {width = 50})
-									
-			form.addRow(3)			
-		
-			form.addIntbox(j.Cycl, 0, 9999, 0, 0, 1,
-									function (value)
-										j.Cycl = value
-										saveAkkus()
-									end, {width = 95, label = vars.trans.cycles, font = FONT_MINI})	
-			form.addIntbox(math.floor(j.usedCapacity), 0, 9999, 0, 0, 10,
-											function (value)
-												j.usedCapacity = value
-												saveAkkus()
-											end, {label=" mAh", width = 112, font = FONT_MINI})					
-			form.addIntbox(math.floor(j.Ah), 0, 9999, 0, 0, 1,
-									function (value)
-										j.Ah = value
-										saveAkkus()
-									end, {label=" Ah", width = 115, font = FONT_MINI})
+				form.addIntbox(j.Capacity, 0, 32767, 0, 0, 10,
+										function (value)
+											j.Capacity = value
+											saveAkkus()
+										end, {width = 60} )
+				form.addIntbox(j.batC, 0, 90, 0, 0, 5,
+										function (value)
+											j.batC = value
+											saveAkkus()
+										end, {width = 50})
+										
+				form.addRow(3)			
+			
+				form.addIntbox(j.Cycl, 0, 9999, 0, 0, 1,
+										function (value)
+											j.Cycl = value
+											saveAkkus()
+										end, {width = 95, label = vars.trans.cycles, font = FONT_MINI})	
+				form.addIntbox(math.floor(j.usedCapacity), 0, 9999, 0, 0, 10,
+												function (value)
+													j.usedCapacity = value
+													saveAkkus()
+												end, {label=" mAh", width = 112, font = FONT_MINI})					
+				form.addIntbox(math.floor(j.Ah), 0, 9999, 0, 0, 1,
+										function (value)
+											j.Ah = value
+											saveAkkus()
+										end, {label=" Ah", width = 115, font = FONT_MINI})
+			end
 		end
 	end
 	form.addSpacer(320,5)
@@ -369,5 +381,6 @@ return {
 
 	setup = setup,
 	moveLine = moveLine,
-	setupBat = setupBat
+	setupBat = setupBat,
+	scrollAkku = scrollAkku
 }
