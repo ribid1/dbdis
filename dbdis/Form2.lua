@@ -220,6 +220,8 @@ end
 local function saveAkkus()
 	local ID1 = vars.Akkus[vars.Akku1].ID
 	local ID2 = vars.Akkus[vars.Akku2].ID
+	local ID3 = vars.Akkus[vars.Akku3].ID
+	local ID4 = vars.Akkus[vars.Akku4].ID
 	local j = 1
 	for i = 1, #vars.Akkus do
 		if vars.Akkus[i].ID ~= -1.0 then
@@ -249,11 +251,28 @@ local function saveAkkus()
 	else
 		vars.Akku2 = vars.AkkusID[0]
 	end	
+	if vars.AkkusID[ID3] then
+		vars.Akku3 = vars.AkkusID[ID3]
+	else
+		vars.Akku3 = vars.AkkusID[0]
+	end	
+	if vars.AkkusID[ID4] then
+		vars.Akku4 = vars.AkkusID[ID4]
+	else
+		vars.Akku4 = vars.AkkusID[0]
+	end
+		
 	if not vars.AkkusID[vars.config.Akku1ID] then
 		vars.config.Akku1ID = 0
 	end
 	if not vars.AkkusID[vars.config.Akku2ID] then
 		vars.config.Akku2ID = 0
+	end
+	if not vars.AkkusID[vars.config.Akku3ID] then
+		vars.config.Akku3ID = 0
+	end
+	if not vars.AkkusID[vars.config.Akku4ID] then
+		vars.config.Akku4ID = 0
 	end
 	
 	local obj = json.encode(vars.Akkus)

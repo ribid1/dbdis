@@ -123,7 +123,16 @@
 		"switchError":"Value <> Reverse setting!",
 		"of":" of ",
 		"checked":" Cells checked",
-		"act":"act:"
+		"act":"act:",
+		"titleAdvanced":"Advanced Settings:",
+		"calcAkkuCond":"Calc. Chargecondition:",
+		"back":"<< back",
+		"advancedSet":"Advanced settings >>",
+		"akkuused":"Akku used",
+		"akkufull":"Akku full",
+		"imaxvoltalarm":"repeat voltage-alarm",
+		"imaxprealarm":"repeat pre-alarm",
+		"imaxmainalarm":"repeat main-alarm"
 },
 	"de":{
 		"appName":"dbdis",
@@ -247,6 +256,15 @@
 		"switchError":"Schalterwert <> Rev.!",
 		"of":" von ",
 		"checked":" Z. überwacht",
-		"act":"akt:"
+		"act":"akt:",
+		"titleAdvanced":"Erweiterte Einstellungen",
+		"calcAkkuCond":"Berechne Ladezustand:",
+		"back":"<< zurück",
+		"advancedSet":"Erweiterte Einstellungen >>",
+		"akkuused":"Akku wurde verwendet",
+		"akkufull":"Akku voll",
+		"imaxvoltalarm":"Anz. Spannungsalarm",
+		"imaxprealarm":"Anz. Voralarm",
+		"imaxmainalarm":"Anz. Hauptalarm"
 	}
 }

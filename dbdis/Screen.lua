@@ -981,11 +981,11 @@ local function usedCap(Akku, UsedCap_sens)
 end
 
 function drawfunc.used_Cap1()
-	usedCap(vars.Akku1, "UsedCap1_sens")
+	usedCap(vars.Akku3, "UsedCap1_sens")
 end
 
 function drawfunc.used_Cap2()
-	usedCap(vars.Akku2,"UsedCap2_sens")
+	usedCap(vars.Akku4,"UsedCap2_sens")
 end
 
 function drawfunc.weakest_Cell()
@@ -1151,7 +1151,7 @@ local percentList	=	{{3,0},{3.093,1},{3.196,2},{3.301,3},{3.401,4},{3.477,5},{3.
 -- Count percentage from cell voltage
 local function get_capacity_percent_used(cell_voltage)
 	local result=0
-	if vars.configG.CalcUsedCapacity then
+	if vars.config.calcAkkuCond == 1 then
 		if cell_voltage > 4.2 or cell_voltage < 3.00 then
 			if(cell_voltage > 4.2)then
 				result=0
@@ -1406,7 +1406,7 @@ local function writeLog()
 	
 	for i,j in ipairs(vars.iAkkus) do
 		Akku = vars.Akkus[vars["Akku"..j]]
-		if (vars.ak[i].battery_voltage_average / Akku.iCells) < vars.configG.AkkuUsed then -- Akku wurde gebraucht
+		if (vars.ak[i].battery_voltage_average / Akku.iCells * 100) < vars.config.AkkuUsed then -- Akku wurde gebraucht
 			if (vars.ak[i].AkkuwasFull and not vars.ak[i].usedAkku) then 
 				Akku.Cycl = Akku.Cycl + 1
 				Akku.usedCapacity = 0
@@ -1590,7 +1590,7 @@ local function battery_voltage_sens(Voltsens, Capsens, AkkuNr, iAkku)
 				iVoltageAlarm = 0
 				initial_cell_voltage = cell_voltage
 				vars.ak[iAkku].minVoltpC = cell_voltage
-				if initial_cell_voltage < vars.configG.AkkuFull then
+				if initial_cell_voltage * 100 < vars.config.AkkuFull then
 					vars.ak[iAkku].AkkuwasFull = false
 				else 
 					vars.ak[iAkku].AkkuwasFull = true
@@ -1621,7 +1621,7 @@ local function battery_voltage_sens(Voltsens, Capsens, AkkuNr, iAkku)
 			vars.ak[iAkku].last_averaging_time = newTime
 		end
 		
-		if ((vars.drawVal[Voltsens].measured and (vars.ak[iAkku].battery_voltage_average / vars.Akkus[AkkuNr].iCells) <= vars.config.voltage_alarm_thresh/100) or (vars.drawVal.weakVoltage_sens.measured and vars.Value.weakVoltage_sens <= vars.config.voltage_alarm_thresh/100)) and vars.config.voltage_alarm_voice ~= "..." and next_voltage_alarm < tickTime and iVoltageAlarm < vars.configG.imaxVoltAlarm then
+		if ((vars.drawVal[Voltsens].measured and (vars.ak[iAkku].battery_voltage_average / vars.Akkus[AkkuNr].iCells) <= vars.config.voltage_alarm_thresh/100) or (vars.drawVal.weakVoltage_sens.measured and vars.Value.weakVoltage_sens <= vars.config.voltage_alarm_thresh/100)) and vars.config.voltage_alarm_voice ~= "..." and next_voltage_alarm < tickTime and iVoltageAlarm < vars.config.imaxVoltAlarm then
 			system.messageBox(vars.trans.voltWarn,2)
 			system.playFile(vars.config.voltage_alarm_voice,AUDIO_QUEUE)
 			iVoltageAlarm = iVoltageAlarm + 1
@@ -1776,7 +1776,7 @@ local function loop()
 		--if vars.switches.engineSw then vars.Rx.rx1.percent = system.getInputsVal(vars.switches.engineSw) * 100 end ----------------- zum Testen Auskommentierung aufheben!!!!!!!!!!!!!!!!!!!
 		
 		if not vars.Rx[RxTyp].initial then
-			if vars.Rx[RxTyp].percent > 99.0 then
+			if vars.Rx[RxTyp].percent then  --alt: vars.Rx[RxTyp].percent > 99.0
 				if not vars.receiverOn then
 					itemp = vars.Rx[RxTyp].percent
 					calcaApptemp = calcaApp
@@ -2008,8 +2008,10 @@ local function loop()
 			vars.drawVal.battery_voltage2_sens.measured = true 	
 		end	
 		
+		-- wenn die verbrauchten mAh manuell zurückgesetzt werden (z.Bsp bei der calcaApp)
+		-- math.abs ist nur weil der Spirit Telemetriewert bei Kontronik Reglern manchmal ins negative fällt.
 		for i=1,vars.iEngines do
-			if vars.Value["used_capacity"..sens12[i]] < vars.ak[i].resetusedcapacity  then  vars.ak[i].resetusedcapacity = vars.Value["used_capacity"..sens12[i]] end
+			if math.abs(vars.Value["used_capacity"..sens12[i]]) < vars.ak[i].resetusedcapacity  then  vars.ak[i].resetusedcapacity = vars.Value["used_capacity"..sens12[i]] end
 		end
 		
 		--if vars.Value.used_capacity_sens < vars.ak[1].resetusedcapacity  then  vars.ak[1].resetusedcapacity = vars.Value.used_capacity_sens end
@@ -2018,7 +2020,7 @@ local function loop()
 		---Alarme:
 		--vars.remaining_capacity_percent1 alarm
 		if rcp_min > 0 and next_capacity_alarm < tickTime then
-			if imainAlarm < vars.configG.imaxMainAlarm and rcp_min <= vars.config.capacity_alarm_thresh then
+			if imainAlarm < vars.config.imaxMainAlarm and rcp_min <= vars.config.capacity_alarm_thresh then
 				if vars.config.capacity_alarm_voice == "..." then
 					system.playNumber(rcp_min, 0, "%")
 				else
@@ -2026,9 +2028,9 @@ local function loop()
 				end
 				system.messageBox(vars.trans.capaWarn,2)
 				imainAlarm = imainAlarm + 1
-				if imainAlarm == vars.configG.imaxMainAlarm then ipreAlarm = vars.configG.imaxPreAlarm end
+				if imainAlarm == vars.config.imaxMainAlarm then ipreAlarm = vars.config.imaxPreAlarm end
 				next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
-			elseif ipreAlarm < vars.configG.imaxPreAlarm and rcp_min <= vars.config.capacity_alarm_thresh2 then
+			elseif ipreAlarm < vars.config.imaxPreAlarm and rcp_min <= vars.config.capacity_alarm_thresh2 then
 				if vars.config.capacity_alarm_voice2 == "..." then
 					system.playNumber(rcp_min, 0, "%")
 				else
@@ -2042,7 +2044,7 @@ local function loop()
 		
 		--remaining_fuel_percent_sens alarm
 		if rfp_min > 0 and next_capacity_alarm < tickTime then
-			if imainAlarm < vars.configG.imaxMainAlarm and rfp_min <= vars.config.capacity_alarm_thresh then
+			if imainAlarm < vars.config.imaxMainAlarm and rfp_min <= vars.config.capacity_alarm_thresh then
 				if vars.config.capacity_alarm_voice == "..." then
 					system.playNumber(rfp_min, 0, "%")
 				else
@@ -2050,9 +2052,9 @@ local function loop()
 				end
 				system.messageBox(vars.trans.fuelWarn,2)
 				imainAlarm = imainAlarm + 1
-				if imainAlarm == vars.configG.imaxMainAlarm then ipreAlarm = vars.configG.imaxPreAlarm end
+				if imainAlarm == vars.config.imaxMainAlarm then ipreAlarm = vars.config.imaxPreAlarm end
 				next_capacity_alarm = tickTime + 5 -- battery percentage alarm every 4 seconds
-			elseif ipreAlarm < vars.configG.imaxPreAlarm and rfp_min <= vars.config.capacity_alarm_thresh2 then
+			elseif ipreAlarm < vars.config.imaxPreAlarm and rfp_min <= vars.config.capacity_alarm_thresh2 then
 				if vars.config.capacity_alarm_voice2 == "..." then
 					system.playNumber(rfp_min, 0, "%")
 				else

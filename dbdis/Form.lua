@@ -73,6 +73,14 @@ local function check_other_device(sens, deviceId)
 	end
 end
 
+local function configChanged(configName, value)
+	vars.config[configName] = value
+	system.pSave(configName, value)
+	form.setButton(1, "save",ENABLED)
+	vars.changedConfig = 1
+	collectgarbage()
+end
+
 
 
 local function setup(varstemp, senslbls)
@@ -81,7 +89,7 @@ local function setup(varstemp, senslbls)
 	local temp
 	local dateinamen = {}
 	local confignames = {["_config.jsn"]=true}
-	local akku1, akku2
+	local akku1, akku2, akku3, akku4
 	
 	
 	local function saveFlights()
@@ -94,13 +102,7 @@ local function setup(varstemp, senslbls)
 		collectgarbage()
 	end 
 
-	local function configChanged(configName, value)
-		vars.config[configName] = value
-		system.pSave(configName, value)
-		form.setButton(1, "save",ENABLED)
-		vars.changedConfig = 1
-		collectgarbage()
-	end
+
 	
 	
 	local function switchChanged(switchName, value)
@@ -289,8 +291,8 @@ local function setup(varstemp, senslbls)
 	form.addLabel({label=vars.trans.label2,font=FONT_BOLD})
 	
 							
-	form.addRow(2)
-	form.addLabel({label="Akku 1 ID:", width=210})
+	form.addRow(4)
+	form.addLabel({label="Akku 1 ID:", width=90})
 	akku1 = form.addIntbox(vars.config.Akku1ID, 0, 999, 0, 0, 1,
 						function (value)
 							if vars.AkkusID[value] then
@@ -305,9 +307,7 @@ local function setup(varstemp, senslbls)
 								configChanged("Akku1ID", vars.Akkus[vars.Akku1].ID)
 							end
 						end)
-	
-	form.addRow(2)
-	form.addLabel({label="Akku 2 ID:", width=210})
+	form.addLabel({label="Akku 2 ID:", width=90})
 	akku2 = form.addIntbox(vars.config.Akku2ID, 0, 999, 0, 0, 1,
 						function (value)
 							if vars.AkkusID[value] then
@@ -322,6 +322,40 @@ local function setup(varstemp, senslbls)
 								configChanged("Akku2ID", vars.Akkus[vars.Akku2].ID)
 							end
 						end)
+	form.addRow(4)
+	form.addLabel({label="Akku 3 ID:", width=90})
+	akku3 = form.addIntbox(vars.config.Akku3ID, 0, 999, 0, 0, 1,
+						function (value)
+							if vars.AkkusID[value] then
+								vars.Akku3 = vars.AkkusID[value]
+								configChanged("Akku3ID", value)
+							else
+								vars.Akku3 = vars.Akku3 + 1
+								if vars.Akku3 > #vars.Akkus then 
+									vars.Akku3 = 1 
+								end
+								form.setValue(akku3, vars.Akkus[vars.Akku3].ID)
+								configChanged("Akku3ID", vars.Akkus[vars.Akku3].ID)
+							end
+						end)
+	form.addLabel({label="Akku 4 ID:", width=90})
+	akku4 = form.addIntbox(vars.config.Akku4ID, 0, 999, 0, 0, 1,
+						function (value)
+							if vars.AkkusID[value] then
+								vars.Akku4 = vars.AkkusID[value]
+								configChanged("Akku4ID", value)
+							else
+								vars.Akku4 = vars.Akku4 + 1
+								if vars.Akku4 > #vars.Akkus then 
+									vars.Akku4 = 1 
+								end
+								form.setValue(akku4, vars.Akkus[vars.Akku4].ID)
+								configChanged("Akku4ID", vars.Akkus[vars.Akku4].ID)
+							end
+						end)
+						
+						
+						
 						
 	form.addRow(2)
 	form.addLabel({label=vars.trans.tank_volume1, width=210})
@@ -485,9 +519,9 @@ local function setup(varstemp, senslbls)
 		if vars.configName:len() > 0 then vars.changeSens = 2 end
 		form.setButton(1, vars.configName:len() > 0 and "Load" or 1, vars.configName:len() > 0 and ENABLED or DISABLED)
 	end, {width = 210})						
-
+	form.addLink((function() form.reinit(5) end), {font = FONT_MINI, alignRight = true, label = vars.trans.advancedSet})
 	form.addRow(1)
-	form.addLabel({label=vars.trans.appName .. " " .. vars.Version .. " ", font=FONT_MINI, alignRight=true})
+	form.addLabel({label=vars.trans.appName .. " " .. vars.Version .. " ", font=FONT_MINI, alignRight=false})
 	
 
 	collectgarbage()
@@ -495,9 +529,84 @@ local function setup(varstemp, senslbls)
 	return (vars)
 end
 
+local function setupAdvanced(varstemp)
+	vars = varstemp
+	local cbAkkuCond
+	form.setTitle(vars.trans.titleAdvanced)
+
+	form.addSpacer(318,7)
+	
+	form.addRow(2)
+	form.addLabel({label=vars.trans.calcAkkuCond,width=270})
+	cbAkkuCond = form.addCheckbox((vars.config.calcAkkuCond == 1 and true or false),function(value)
+		vars.config.calcAkkuCond = not value
+		configChanged("calcAkkuCond", not value and 1 or 0)
+		form.setValue(cbAkkuCond, not value)
+		end)
+	form.addSpacer(318,7)
+	
+	form.addRow(3)
+	form.addLabel({label=vars.trans.akkufull, width=210})
+	form.addLabel({label=">", width=20})
+	form.addIntbox(vars.config.AkkuFull,0,500,0,2,1,
+						function (value)
+								configChanged("AkkuFull", value)
+						end, {label=" V"})
+	form.addRow(3)
+	form.addLabel({label=vars.trans.akkuused, width=210})
+	form.addLabel({label="<", width=20})
+	form.addIntbox(vars.config.AkkuUsed,0,500,0,2,1,
+						function (value)
+								configChanged("AkkuUsed", value)
+						end, {label=" V"})	
+	form.addSpacer(318,7)
+	
+	form.addRow(2)
+	form.addLabel({label=vars.trans.imaxprealarm, width=210})
+	form.addIntbox(vars.config.imaxPreAlarm,0,10,0,0,1,
+						function (value)
+								configChanged("imaxPreAlarm", value)
+						end)	
+	form.addRow(2)
+	form.addLabel({label=vars.trans.imaxmainalarm, width=210})
+	form.addIntbox(vars.config.imaxMainAlarm,0,10,0,0,1,
+						function (value)
+								configChanged("imaxMainAlarm", value)
+						end)
+	form.addRow(2)
+	form.addLabel({label=vars.trans.imaxvoltalarm, width=210})
+	form.addIntbox(vars.config.imaxVoltAlarm,0,10,0,0,1,
+						function (value)
+								configChanged("imaxVoltAlarm", value)
+						end)						
+						
+	form.addSpacer(318,7)
+	
+	
+	
+	for i,j in ipairs({"label_Temp", "label_Temp_2", "label_fet_Temp"}) do
+		form.addRow(2)
+		form.addLabel({label=j..":", width=160})
+		form.addTextbox(vars.trans[j],12,
+								function (value)
+									if #value > 0 then
+										system.pSave(j,value)
+										vars.trans[j] = value
+									else
+										system.pSave(j,nil)
+										vars.trans[j] = ""
+									end
+								end,{width = 200})
+	 
+	end
+	
+	form.addSpacer(318,7)
+	
+	form.addLink((function() form.reinit(1) end), {font = FONT_MINI, alignRight = false, label = vars.trans.back})
+	return (vars)
+end
+
 return {
-
-	setup = setup
-  
-
+	setup = setup,
+	setupAdvanced = setupAdvanced
 }
