@@ -89,7 +89,8 @@
 		  - Improvement in combination with the CalCa-Gas App 
 	V3.42 - Improvemtnt in combination with Jeti Assist (Sensor ID > 1)
 		  - Multiple pages of the Akku page
-
+	V3.43 - Now you can select 4 batteries for each model (usefull for jet models)	  
+		  - Add an extra page in the menu for advanced settings, so don't need to deal with the config file any more except for the colors.
 
 --]]
 
@@ -142,7 +143,7 @@ dbdis_tank_volume = 0  -- dbdis_tank_volume wird in CalCa-Gas verwendet
 
 local vars = {}
 vars.appName = "dbdis"
-vars.Version = "3.42"
+vars.Version = "3.43"
 local owner = " "
 local Title1, Title2
 --local mem, maxmem = 0, 0 -- for debug only
@@ -629,9 +630,17 @@ local function loadBat()
 	if not vars.AkkusID[vars.config.Akku2ID] then
 		vars.config.Akku2ID = 0
 	end
+	if not vars.AkkusID[vars.config.Akku3ID] then
+		vars.config.Akku3ID = 0
+	end
+	if not vars.AkkusID[vars.config.Akku4ID] then
+		vars.config.Akku4ID = 0
+	end
+	
 	vars.Akku1 = vars.AkkusID[vars.config.Akku1ID]
 	vars.Akku2 = vars.AkkusID[vars.config.Akku2ID]
-
+	vars.Akku3 = vars.AkkusID[vars.config.Akku3ID]
+	vars.Akku4 = vars.AkkusID[vars.config.Akku4ID]
 	collectgarbage()
 end
 
@@ -768,7 +777,9 @@ local function setupForm(ID)
 	---unrequire(vars.appName.."/Screen")
 		---unrequire(vars.appName.."/Form2")
 		if not Form then Form = require (vars.appName.."/Form") end
-		vars = Form.setup(vars, senslbls) -- return modified data from user		
+		vars = Form.setup(vars, senslbls) -- return modified data from user	
+	elseif formID == 5 then
+		vars = Form.setupAdvanced(vars)
 	else 
 		-- if not Screen then Screen = require (vars.appName.."/Screen") end
 		-- vars = Screen.init(vars)						
@@ -794,7 +805,7 @@ end
 
 local function keyForm(key)
 	if key == KEY_1 then
-		if formID == 1 then
+		if formID == 1 or formID == 5 then
 			if vars.changeSens == 2 then
 				loadConfig()
 				changed(1)
@@ -806,7 +817,11 @@ local function keyForm(key)
 				vars.deviceIndex = 0
 			end	
 		end	
-		form.reinit(1)
+		if formID == 5 then 
+			form.reinit(5)
+		else
+			form.reinit(1)
+		end
 	elseif (key == KEY_2 and formID ~= 2) then
 		form.reinit(2)
 	elseif key == KEY_2 and formID == 2 then
@@ -1042,12 +1057,12 @@ local function init(code1)
 	end
 
 	--Global config values:
-	vars.configG.AkkuFull = 4.08  --bei einer Spannung über diesen Wert wird der Akku als voll erkannt
-	vars.configG.AkkuUsed = 4.08  --bei einer Spannung unter diesem Wert wird der Akku als verwendet erkannt
-	vars.configG.imaxPreAlarm = 2  -- maximale Anzahl Voralarm
-	vars.configG.imaxMainAlarm = 4 -- maximale Anzahl Hauptalarm
-	vars.configG.imaxVoltAlarm = 6 -- maximale Anzahl voltage Alarm
-	vars.configG.CalcUsedCapacity = true  -- calculate remaining Capacity due to voltage
+	--vars.configG.AkkuFull = 4.08  --bei einer Spannung über diesen Wert wird der Akku als voll erkannt
+	--vars.configG.AkkuUsed = 4.08  --bei einer Spannung unter diesem Wert wird der Akku als verwendet erkannt
+	--vars.configG.imaxPreAlarm = 2  -- maximale Anzahl Voralarm
+	--vars.configG.imaxMainAlarm = 4 -- maximale Anzahl Hauptalarm
+	--vars.configG.imaxVoltAlarm = 6 -- maximale Anzahl voltage Alarm
+	--vars.configG.CalcUsedCapacity = true  -- calculate remaining Capacity due to voltage
 	vars.configG.color = {{255,150,0},{255,250,0},{210,255,0},{150,255,0},{0,220,0},{0,255,255},{110,190,250},{255,100,255},{255,70,110}}
 	file = io.readall("Apps/"..vars.appName.."/dbdis_config.jsn", "r") 
 	if file then 
@@ -1057,10 +1072,16 @@ local function init(code1)
 				vars.trans[i] = k
 			elseif string.sub(i,1,5) == "color" then
 				vars.configG.color[tonumber(string.sub(i,-2,-1))] = k
-			else	
-				vars.configG[i] = k
+			-- else	
+				-- vars.configG[i] = k
 			end
 		end		
+	end
+	
+	for i,j in ipairs({"label_Temp", "label_Temp_2", "label_fet_Temp"}) do
+		if system.pLoad(j) then 
+			vars.trans[j] = system.pLoad(j)
+		end
 	end
 	
 	vars.col = {}
@@ -1083,9 +1104,17 @@ local function init(code1)
 	vars.config.timeToCount = system.pLoad("timeToCount", 120)	
 	vars.config.Akku1ID = system.pLoad("Akku1ID", 0)
 	vars.config.Akku2ID = system.pLoad("Akku2ID", 0)
+	vars.config.Akku3ID = system.pLoad("Akku3ID", 0)
+	vars.config.Akku4ID = system.pLoad("Akku4ID", 0)
 	vars.config.gyChannel = system.pLoad("gyChannel", 17) -- going to form only	
 	vars.config.gyro_output = system.pLoad("gyro_output", 0) -- coming from form only	
 	vars.config.rpm2_faktor = system.pLoad("rpm2_faktor", 100)
+	vars.config.calcAkkuCond = system.pLoad("calcAkkuCond", 1)
+	vars.config.AkkuFull = system.pLoad("AkkuFull", 408)
+	vars.config.AkkuUsed = system.pLoad("AkkuUsed", 408)
+	vars.config.imaxPreAlarm = system.pLoad("imaxPreAlarm", 2)
+	vars.config.imaxMainAlarm = system.pLoad("imaxMainAlarm", 4)
+	vars.config.imaxVoltAlarm = system.pLoad("imaxVoltAlarm", 6)
 	
 	-- Schalter:
 	file = io.readall("Apps/"..vars.appName.."/"..vars.model.."_config.jsn", "r") 
