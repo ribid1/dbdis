@@ -1,6 +1,6 @@
 # dbdis
 Full screen telemetry window for Jeti Transmitter to display all kind of sensors for helis, aeroplanes and drones  
-Latest Version: **3.42**
+Latest Version: **3.43**
 It bases on the Jlog script  from nichtgedacht: https://github.com/nichtgedacht/JLog-Heli 
   
 The dbdis app is specially designed for the jeti transmitters with a coloured display.  
@@ -168,4 +168,8 @@ V3.41:
 
 V3.42:
   - Improvemtnt in combination with Jeti Assist (Sensor ID > 1)  
-  - Multiple pages of the Akku page
+  - Multiple pages of the Akku page  
+
+V3.43:
+  - Now you can select 4 batteries for each model (usefull for jet models)	  
+  - Add an extra page in the menu for advanced settings, so don't need to deal with the config file any more except for the colors.  
